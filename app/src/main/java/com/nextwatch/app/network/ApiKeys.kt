@@ -1,0 +1,11 @@
+package com.nextwatch.app.network
+
+/**
+ * Replace the placeholder values with your own API keys.
+ * TMDb: https://www.themoviedb.org/settings/api
+ * OMDb: https://www.omdbapi.com/apikey.aspx
+ */
+object ApiKeys {
+    const val TMDB = "your tmdb api key"
+    const val OMDB = "your omdb api key"
+}
