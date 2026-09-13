@@ -1,23 +1,43 @@
 package com.nextwatch.app.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "media_items")
+@Entity(
+    tableName = "media_items",
+    indices = [
+        Index(
+            value = ["tmdbId", "type"],
+            unique = true
+        )
+    ]
+)
 data class MediaItem(
     @PrimaryKey(autoGenerate = true)
     val id: Long = 0,
+
     val tmdbId: Int? = null,
     val imdbId: String? = null,
+
     val title: String,
     val type: String,
     val status: String,
+
+    val overview: String? = null,
+
     val posterUrl: String? = null,
-    val releaseYear: String? = null,
-    val runtime: String? = null,
-    val imdbRating: String? = null,
-    val rottenTomatoesRating: String? = null,
-    val dateAdded: Long = System.currentTimeMillis(),
+    val posterLocalPath: String? = null,
+
+    val releaseDate: String? = null,
+
+    val runtimeMinutes: Int? = null,
+
+    val seasonCount: Int? = null,
+
+    val imdbRating: Double? = null,
+
+    val dateAdded: Long = System.currentTimeMillis()
 ) {
     companion object {
         const val TYPE_MOVIE = "Movie"

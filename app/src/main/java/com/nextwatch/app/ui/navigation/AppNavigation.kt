@@ -19,12 +19,16 @@ import com.nextwatch.app.ui.screens.WatchHistoryScreen
 import com.nextwatch.app.ui.screens.WatchlistScreen
 import com.nextwatch.app.ui.viewmodel.NextWatchViewModel
 import com.nextwatch.app.ui.viewmodel.ViewModelFactory
+import com.nextwatch.app.ui.screens.SavedMediaDetailScreen
 
 object AppRoutes {
     const val Hub = "hub"
     const val Watchlist = "watchlist"
     const val History = "history"
     const val Search = "search"
+    const val SavedMediaDetail = "saved_media_detail/{mediaId}"
+
+    fun savedMediaDetail(mediaId: Long): String ="saved_media_detail/$mediaId"
     const val MediaDetail =
         "media_detail/{tmdbId}/{mediaType}?title={title}&year={year}&posterUrl={posterUrl}"
 
@@ -77,6 +81,11 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
                 onAddClick = { navController.navigate(AppRoutes.Search) },
+                onItemClick = { item ->
+                    navController.navigate(
+                        AppRoutes.savedMediaDetail(item.id)
+                    )
+                },
             )
         }
         composable(AppRoutes.Search) {
@@ -127,6 +136,31 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             WatchHistoryScreen(
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
+                onItemClick = { item ->
+                    navController.navigate(
+                        AppRoutes.savedMediaDetail(item.id)
+                    )
+                },
+            )
+        }
+
+        composable(
+            route = AppRoutes.SavedMediaDetail,
+            arguments = listOf(
+                navArgument("mediaId") {
+                    type = NavType.LongType
+                },
+            ),
+        ) { entry ->
+            val mediaId = entry.arguments?.getLong("mediaId")
+                ?: return@composable
+
+            SavedMediaDetailScreen(
+                mediaId = mediaId,
+                viewModel = viewModel,
+                onBackClick = {
+                    navController.popBackStack()
+                },
             )
         }
     }

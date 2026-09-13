@@ -1,5 +1,10 @@
 package com.nextwatch.app.ui.screens
 
+import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -28,6 +33,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import com.nextwatch.app.data.MediaItem
 import com.nextwatch.app.ui.viewmodel.NextWatchViewModel
+import coil.compose.AsyncImage
 
 private enum class HistoryTab {
     Movies,
@@ -40,6 +46,7 @@ fun WatchHistoryScreen(
     viewModel: NextWatchViewModel,
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onItemClick: (MediaItem) -> Unit = {},
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(HistoryTab.Movies.ordinal) }
     val movies by viewModel.historyMovies.collectAsState()
@@ -82,6 +89,7 @@ fun WatchHistoryScreen(
             HistoryList(
                 items = items,
                 onRewatchClick = viewModel::rewatchMedia,
+                onItemClick = onItemClick,
             )
         }
     }
@@ -91,12 +99,14 @@ fun WatchHistoryScreen(
 private fun HistoryList(
     items: List<MediaItem>,
     onRewatchClick: (MediaItem) -> Unit,
+    onItemClick: (MediaItem) -> Unit,
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(items, key = { it.id }) { item ->
             HistoryRow(
                 item = item,
                 onRewatchClick = { onRewatchClick(item) },
+                onItemClick = { onItemClick(item) },
             )
         }
     }
@@ -106,11 +116,24 @@ private fun HistoryList(
 private fun HistoryRow(
     item: MediaItem,
     onRewatchClick: () -> Unit,
+    onItemClick: () -> Unit,
 ) {
     Column {
         ListItem(
-            headlineContent = { Text(item.title) },
-            supportingContent = { Text(item.releaseYear.orEmpty()) },
+            modifier = Modifier.clickable(onClick = onItemClick),
+            headlineContent = {
+                Text(item.title)
+            },
+            supportingContent = {
+                Text(item.releaseDate?.take(4).orEmpty())
+            },
+            leadingContent = {
+                AsyncImage(
+                    model = item.posterLocalPath ?: item.posterUrl,
+                    contentDescription = item.title,
+                    modifier = Modifier.size(56.dp),
+                )
+            },
             trailingContent = {
                 IconButton(onClick = onRewatchClick) {
                     Icon(

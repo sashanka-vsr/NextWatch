@@ -39,24 +39,122 @@ class NextWatchApiClient(
     }
 
     suspend fun fetchOmdbDetails(
-        title: String,
-        year: String?,
-        mediaType: String? = null,
-    ): OmdbDetails? = withContext(Dispatchers.IO) {
-        val body = httpClient.get(OMDB_URL) {
-            parameter("apikey", omdbApiKey)
-            parameter("t", title)
-            if (!year.isNullOrBlank()) {
-                parameter("y", year)
-            }
-            when (mediaType) {
-                MediaItem.TYPE_SERIES -> parameter("type", "series")
-                MediaItem.TYPE_MOVIE -> parameter("type", "movie")
-            }
-        }.bodyAsText()
+        imdbId: String,
+        ): OmdbDetails? = withContext(Dispatchers.IO) {
 
-        parseOmdbDetails(body)
+            val body = httpClient.get(OMDB_URL) {
+                parameter("apikey", omdbApiKey)
+                parameter("i", imdbId)
+            }.bodyAsText()
+
+            parseOmdbDetails(body)
     }
+
+    suspend fun fetchTmdbDetails(
+            tmdbId: Int,
+            mediaType: String,
+        ): TmdbDetails? = withContext(Dispatchers.IO) {
+
+            val url = when (mediaType) {
+                MediaItem.TYPE_MOVIE -> "$TMDB_BASE_URL/movie/$tmdbId"
+                MediaItem.TYPE_SERIES -> "$TMDB_BASE_URL/tv/$tmdbId"
+                else -> return@withContext null
+            }
+
+            val body = httpClient.get(url) {
+                parameter("api_key", tmdbApiKey)
+                parameter("append_to_response", "external_ids")
+            }.bodyAsText()
+
+            parseTmdbDetails(body, mediaType)
+    }
+
+    private fun parseTmdbDetails(
+            body: String,
+            mediaType: String,
+    ): TmdbDetails? {
+
+    val json = JSONObject(body)
+
+    if (json.has("success") && !json.optBoolean("success", true)) {
+        return null
+    }
+
+    val title = when (mediaType) {
+        MediaItem.TYPE_MOVIE -> json.optString("title")
+        MediaItem.TYPE_SERIES -> json.optString("name")
+        else -> ""
+    }.takeIf { it.isNotBlank() } ?: return null
+
+    val releaseDate = when (mediaType) {
+        MediaItem.TYPE_MOVIE -> json.optString("release_date")
+        MediaItem.TYPE_SERIES -> json.optString("first_air_date")
+        else -> ""
+    }.takeIf { it.isNotBlank() }
+
+    val runtimeMinutes = when (mediaType) {
+        MediaItem.TYPE_MOVIE -> {
+            json.optInt("runtime", 0).takeIf { it > 0 }
+        }
+
+        MediaItem.TYPE_SERIES -> {
+            val runtimes = json.optJSONArray("episode_run_time")
+
+            if (runtimes != null && runtimes.length() > 0) {
+                runtimes.optInt(0).takeIf { it > 0 }
+            } else {
+                null
+            }
+        }
+
+        else -> null
+    }
+
+    val seasonCount = if (mediaType == MediaItem.TYPE_SERIES) {
+        json.optInt("number_of_seasons", 0)
+            .takeIf { it > 0 }
+    } else {
+        null
+    }
+
+    val genres = buildList {
+        val genreArray = json.optJSONArray("genres") ?: return@buildList
+
+        for (index in 0 until genreArray.length()) {
+            val genre = genreArray.optJSONObject(index)
+                ?.optString("name")
+                ?.takeIf { it.isNotBlank() }
+
+            if (genre != null) {
+                add(genre)
+            }
+        }
+    }
+
+    val posterPath = json.optString("poster_path")
+
+    val imdbId = if (mediaType == MediaItem.TYPE_SERIES) {
+        json.optJSONObject("external_ids")
+            ?.optString("imdb_id")
+            ?.takeIf { it.isNotBlank() && it != "null" }
+    } else {
+        json.optString("imdb_id")
+            .takeIf { it.isNotBlank() && it != "null" }
+    }
+
+    return TmdbDetails(
+        tmdbId = json.optInt("id"),
+        title = title,
+        overview = json.optString("overview")
+            .takeIf { it.isNotBlank() && it != "null" },
+        releaseDate = releaseDate,
+        runtimeMinutes = runtimeMinutes,
+        seasonCount = seasonCount,
+        genres = genres,
+        posterUrl = posterUrl(posterPath),
+        imdbId = imdbId,
+    )
+}
 
     private fun parseTmdbResults(body: String): List<TmdbMovie> {
         val results = JSONObject(body).optJSONArray("results") ?: return emptyList()
@@ -91,12 +189,19 @@ class NextWatchApiClient(
 
     private fun parseOmdbDetails(body: String): OmdbDetails? {
         val json = JSONObject(body)
-        if (json.optString("Response") == "False") return null
+    
+        if (json.optString("Response") == "False") {
+            return null
+        }
+    
+        val imdbId = clean(json.optString("imdbID"))
+    
+        val imdbRating = json.optString("imdbRating")
+            .toDoubleOrNull()
+    
         return OmdbDetails(
-            imdbId = clean(json.optString("imdbID")),
-            imdbRating = clean(json.optString("imdbRating")),
-            rottenTomatoesRating = rottenTomatoes(json.optJSONArray("Ratings")),
-            runtime = clean(json.optString("Runtime")),
+            imdbId = imdbId,
+            imdbRating = imdbRating,
         )
     }
 
@@ -105,21 +210,11 @@ class NextWatchApiClient(
         return "$TMDB_IMAGE_BASE$trimmed"
     }
 
-    private fun rottenTomatoes(ratings: JSONArray?): String? {
-        if (ratings == null) return null
-        for (index in 0 until ratings.length()) {
-            val rating = ratings.optJSONObject(index) ?: continue
-            if (rating.optString("Source") == "Rotten Tomatoes") {
-                return clean(rating.optString("Value"))
-            }
-        }
-        return null
-    }
-
     private fun clean(value: String): String? =
         value.takeIf { it.isNotBlank() && it != "null" && it != "N/A" }
 
     companion object {
+        private const val TMDB_BASE_URL = "https://api.themoviedb.org/3"
         private const val TMDB_SEARCH_URL = "https://api.themoviedb.org/3/search/multi"
         private const val TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w185"
         private const val OMDB_URL = "https://www.omdbapi.com/"

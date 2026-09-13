@@ -1,5 +1,8 @@
 package com.nextwatch.app.ui.screens
 
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,6 +37,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.nextwatch.app.data.MediaItem
 import com.nextwatch.app.ui.viewmodel.NextWatchViewModel
+import androidx.compose.foundation.clickable
+import coil.compose.AsyncImage
 
 private enum class WatchlistTab {
     Movies,
@@ -47,6 +52,7 @@ fun WatchlistScreen(
     onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
     onAddClick: () -> Unit = {},
+    onItemClick: (MediaItem) -> Unit = {},
 ) {
     var selectedTab by rememberSaveable { mutableIntStateOf(WatchlistTab.Movies.ordinal) }
     val movies by viewModel.watchlistMovies.collectAsState()
@@ -91,8 +97,15 @@ fun WatchlistScreen(
                 }
             }
             when (WatchlistTab.entries[selectedTab]) {
-                WatchlistTab.Movies -> MoviesWatchlist(movies = movies)
-                WatchlistTab.Series -> SeriesWatchlist(series = series)
+                WatchlistTab.Movies -> MoviesWatchlist(
+                    movies = movies,
+                    onItemClick = onItemClick,
+                )
+            
+                WatchlistTab.Series -> SeriesWatchlist(
+                    series = series,
+                    onItemClick = onItemClick,
+                )
             }
         }
     }
@@ -101,19 +114,28 @@ fun WatchlistScreen(
 private val listContentPadding = PaddingValues(bottom = 88.dp)
 
 @Composable
-private fun MoviesWatchlist(movies: List<MediaItem>) {
+private fun MoviesWatchlist(
+    movies: List<MediaItem>,
+    onItemClick: (MediaItem) -> Unit,
+) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = listContentPadding,
     ) {
         items(movies, key = { it.id }) { item ->
-            TitleRow(item)
+            TitleRow(
+                item = item,
+                onClick = { onItemClick(item) },
+            )
         }
     }
 }
 
 @Composable
-private fun SeriesWatchlist(series: List<MediaItem>) {
+private fun SeriesWatchlist(
+    series: List<MediaItem>,
+    onItemClick: (MediaItem) -> Unit,
+) {
     val watching = series.filter { it.status == MediaItem.STATUS_WATCHING }
     val queued = series.filter { it.status == MediaItem.STATUS_WATCHLIST }
 
@@ -125,13 +147,19 @@ private fun SeriesWatchlist(series: List<MediaItem>) {
             SectionHeader(text = "Currently Watching")
         }
         items(watching, key = { "watching_${it.id}" }) { item ->
-            TitleRow(item)
+            TitleRow(
+                item = item,
+                onClick = { onItemClick(item) },
+            )
         }
         item(key = "watchlist_header") {
             SectionHeader(text = "Watchlist")
         }
         items(queued, key = { "watchlist_${it.id}" }) { item ->
-            TitleRow(item)
+            TitleRow(
+                item = item,
+                onClick = { onItemClick(item) },
+            )
         }
     }
 }
@@ -153,12 +181,30 @@ private fun SectionHeader(text: String) {
 }
 
 @Composable
-private fun TitleRow(item: MediaItem) {
+private fun TitleRow(
+    item: MediaItem,
+    onClick: () -> Unit,
+) {
     Column {
         ListItem(
-            headlineContent = { Text(item.title) },
+            modifier = Modifier.clickable(onClick = onClick),
+            headlineContent = {
+                Text(item.title)
+            },
             supportingContent = {
-                Text(item.releaseYear.orEmpty().ifBlank { item.status })
+                Text(
+                    item.releaseDate
+                        ?.take(4)
+                        .orEmpty()
+                        .ifBlank { item.status }
+                )
+            },
+            leadingContent = {
+                AsyncImage(
+                    model = item.posterLocalPath ?: item.posterUrl,
+                    contentDescription = item.title,
+                    modifier = Modifier.size(56.dp),
+                )
             },
         )
         HorizontalDivider()

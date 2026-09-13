@@ -3,6 +3,8 @@ package com.nextwatch.app.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.nextwatch.app.data.MediaDao
+import com.nextwatch.app.data.MediaGenre
+import com.nextwatch.app.data.MediaGenreDao
 import com.nextwatch.app.data.MediaItem
 import com.nextwatch.app.network.NextWatchApiClient
 import com.nextwatch.app.network.OmdbDetails
@@ -11,9 +13,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.nextwatch.app.data.PosterCache
+import kotlinx.coroutines.flow.Flow
 
 class NextWatchViewModel(
     private val mediaDao: MediaDao,
+    private val mediaGenreDao: MediaGenreDao,
+    private val posterCache: PosterCache,
     private val apiClient: NextWatchApiClient = NextWatchApiClient(),
 ) : ViewModel() {
 
@@ -32,36 +38,75 @@ class NextWatchViewModel(
     val historySeries: StateFlow<List<MediaItem>> = mediaDao
         .getByTypeAndStatuses(MediaItem.TYPE_SERIES, HISTORY_STATUSES)
         .stateIn(viewModelScope, WhileSubscribed, emptyList())
-
-    fun addMedia(item: MediaItem) {
-        viewModelScope.launch {
-            mediaDao.upsert(item)
-        }
+    
+    fun observeMedia(id: Long): Flow<MediaItem?> {
+        return mediaDao.observeById(id)
     }
 
-    suspend fun saveSearchResult(
-        media: TmdbMovie,
-        status: String,
-        details: OmdbDetails? = null,
-    ) {
-        val omdb = details ?: runCatching {
-            apiClient.fetchOmdbDetails(media.title, media.year, media.mediaType)
-        }.getOrNull()
+    fun observeGenres(mediaId: Long): Flow<List<String>> {
+        return mediaGenreDao.observeGenres(mediaId)
+    }
 
-        mediaDao.upsert(
-            MediaItem(
-                tmdbId = media.tmdbId,
-                imdbId = omdb?.imdbId,
-                title = media.title,
-                type = media.mediaType,
-                status = status,
-                posterUrl = media.posterUrl,
-                releaseYear = media.year,
-                runtime = omdb?.runtime,
-                imdbRating = omdb?.imdbRating,
-                rottenTomatoesRating = omdb?.rottenTomatoesRating,
-            ),
-        )
+    fun addMediaFromSearchResult(
+    media: TmdbMovie,
+    status: String,
+    onComplete: () -> Unit,
+) {
+        viewModelScope.launch {
+            runCatching {
+                val tmdbDetails = apiClient.fetchTmdbDetails(
+                    tmdbId = media.tmdbId,
+                    mediaType = media.mediaType,
+                ) ?: return@launch
+
+                val omdbDetails = tmdbDetails.imdbId?.let { imdbId ->
+                    runCatching {
+                        apiClient.fetchOmdbDetails(imdbId)
+                    }.getOrNull()
+                }
+
+                val posterLocalPath = posterCache.downloadPoster(
+                    posterUrl = tmdbDetails.posterUrl,
+                    tmdbId = tmdbDetails.tmdbId,
+                    imdbId = tmdbDetails.imdbId,
+                )
+
+                val mediaId = mediaDao.upsert(
+                    MediaItem(
+                        tmdbId = tmdbDetails.tmdbId,
+                        imdbId = tmdbDetails.imdbId,
+
+                        title = tmdbDetails.title,
+                        type = media.mediaType,
+                        status = status,
+
+                        overview = tmdbDetails.overview,
+
+                        posterUrl = tmdbDetails.posterUrl,
+                        posterLocalPath = posterLocalPath,
+
+                        releaseDate = tmdbDetails.releaseDate,
+                        runtimeMinutes = tmdbDetails.runtimeMinutes,
+                        seasonCount = tmdbDetails.seasonCount,
+
+                        imdbRating = omdbDetails?.imdbRating,
+                    ),
+                )
+
+                mediaGenreDao.deleteForMedia(mediaId)
+
+                mediaGenreDao.insertAll(
+                    tmdbDetails.genres.map { genre ->
+                        MediaGenre(
+                            mediaId = mediaId,
+                            genre = genre,
+                        )
+                    },
+                )
+            }
+
+            onComplete()
+        }
     }
 
     fun moveToHistory(item: MediaItem) {

@@ -50,6 +50,9 @@ interface MediaDao {
     @Query("SELECT * FROM media_items WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): MediaItem?
 
+    @Query("SELECT * FROM media_items WHERE id = :id LIMIT 1")
+    fun observeById(id: Long): Flow<MediaItem?>
+
     @Query(
         """
         SELECT * FROM media_items

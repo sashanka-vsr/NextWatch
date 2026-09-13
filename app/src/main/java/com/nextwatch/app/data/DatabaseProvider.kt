@@ -19,4 +19,8 @@ object DatabaseProvider {
     }
 
     fun mediaDao(context: Context): MediaDao = getDatabase(context).mediaDao()
+
+    fun mediaGenreDao(context: Context): MediaGenreDao {
+        return getDatabase(context).mediaGenreDao()
+    }
 }
