@@ -40,6 +40,10 @@ import com.nextwatch.app.ui.viewmodel.NextWatchViewModel
 import java.io.File
 
 
+import androidx.compose.ui.text.style.TextAlign
+import java.text.SimpleDateFormat
+import java.util.Locale
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SavedMediaDetailScreen(
@@ -53,8 +57,8 @@ fun SavedMediaDetailScreen(
         .collectAsState(initial = null)
 
     val genres by viewModel
-    .observeGenres(mediaId)
-    .collectAsState(initial = emptyList())
+        .observeGenres(mediaId)
+        .collectAsState(initial = emptyList())
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -132,10 +136,10 @@ fun SavedMediaDetailScreen(
                 TypeBadge(text = item.type)
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
+            // 1. Main information / stat cards
             SavedStats(item = item)
 
+            // 2. Genres
             if (genres.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(20.dp))
 
@@ -146,6 +150,7 @@ fun SavedMediaDetailScreen(
                 )
             }
 
+            // 3. Overview
             if (!item.overview.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -167,6 +172,9 @@ fun SavedMediaDetailScreen(
                     )
                 }
             }
+
+            // 4. Additional Information
+            AdditionalInfoSection(item = item)
 
             Spacer(modifier = Modifier.height(24.dp))
         }
@@ -222,27 +230,40 @@ private fun savedPosterModel(item: MediaItem): Any? {
 private fun SavedStats(
     item: MediaItem,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        DetailStat(
-            label = if (item.type == MediaItem.TYPE_SERIES) "Seasons" else "Runtime",
-            value = if (item.type == MediaItem.TYPE_SERIES) {
-                item.seasonCount?.toString() ?: "—"
-            } else {
-                item.runtimeMinutes?.let { "$it min" } ?: "—"
-            },
-            modifier = Modifier.weight(1f),
-        )
+    val stats = buildList {
+        if (item.type == MediaItem.TYPE_SERIES) {
+            item.seasonCount?.let { count ->
+                add("Seasons" to count.toString())
+            }
+            item.episodeCount?.let { count ->
+                add("Episodes" to count.toString())
+            }
+        } else {
+            item.runtimeMinutes?.let { minutes ->
+                add("Runtime" to "$minutes min")
+            }
+        }
 
-        DetailStat(
-            label = "IMDb",
-            value = item.imdbRating?.let {
-                String.format("%.1f", it)
-            } ?: "—",
-            modifier = Modifier.weight(1f),
-        )
+        item.imdbRating?.let { rating ->
+            add("IMDb" to String.format(Locale.US, "%.1f", rating))
+        }
+    }
+
+    if (stats.isNotEmpty()) {
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            for ((label, value) in stats) {
+                DetailStat(
+                    label = label,
+                    value = value,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
     }
 }
 
@@ -278,5 +299,84 @@ private fun DetailStat(
                 fontWeight = FontWeight.Medium,
             )
         }
+    }
+}
+
+@Composable
+private fun AdditionalInfoSection(
+    item: MediaItem,
+) {
+    val infoList = buildList {
+        if (item.type == MediaItem.TYPE_SERIES) {
+            item.creator?.takeIf { it.isNotBlank() }?.let { add("Creator" to it) }
+            item.releaseDate?.takeIf { it.isNotBlank() }?.let { add("First Aired" to formatReleaseDate(it)) }
+        } else {
+            item.director?.takeIf { it.isNotBlank() }?.let { add("Director" to it) }
+            item.releaseDate?.takeIf { it.isNotBlank() }?.let { add("Release Date" to formatReleaseDate(it)) }
+        }
+
+        item.originalLanguage?.takeIf { it.isNotBlank() }?.let { add("Language" to it) }
+        item.country?.takeIf { it.isNotBlank() }?.let { add("Country" to it) }
+    }
+
+    if (infoList.isEmpty()) return
+
+    Spacer(modifier = Modifier.height(24.dp))
+
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(
+            text = "Additional Information",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                infoList.forEach { (label, value) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(0.4f),
+                        )
+                        Text(
+                            text = value,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(0.6f),
+                            textAlign = TextAlign.End,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatReleaseDate(rawDate: String): String {
+    return try {
+        val parser = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val formatter = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
+        val date = parser.parse(rawDate)
+        if (date != null) formatter.format(date) else rawDate
+    } catch (_: Exception) {
+        rawDate
     }
 }

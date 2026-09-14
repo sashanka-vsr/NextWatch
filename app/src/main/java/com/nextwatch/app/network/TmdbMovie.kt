@@ -5,6 +5,9 @@ typealias TmdbMovie = SearchResult
 data class OmdbDetails(
     val imdbId: String?,
     val imdbRating: Double?,
+    val director: String? = null,
+    val country: String? = null,
+    val language: String? = null,
 )
 
 data class TmdbDetails(
@@ -14,6 +17,11 @@ data class TmdbDetails(
     val releaseDate: String?,
     val runtimeMinutes: Int?,
     val seasonCount: Int?,
+    val episodeCount: Int? = null,
+    val director: String? = null,
+    val creator: String? = null,
+    val originalLanguage: String? = null,
+    val country: String? = null,
     val genres: List<String>,
     val posterUrl: String?,
     val imdbId: String?,

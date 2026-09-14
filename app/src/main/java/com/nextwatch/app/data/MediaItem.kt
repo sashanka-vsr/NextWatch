@@ -37,6 +37,12 @@ data class MediaItem(
 
     val imdbRating: Double? = null,
 
+    val director: String? = null,
+    val creator: String? = null,
+    val episodeCount: Int? = null,
+    val originalLanguage: String? = null,
+    val country: String? = null,
+
     val dateAdded: Long = System.currentTimeMillis()
 ) {
     companion object {

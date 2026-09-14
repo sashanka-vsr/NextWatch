@@ -90,6 +90,12 @@ class NextWatchViewModel(
                         seasonCount = tmdbDetails.seasonCount,
 
                         imdbRating = omdbDetails?.imdbRating,
+
+                        director = tmdbDetails.director ?: omdbDetails?.director,
+                        creator = tmdbDetails.creator,
+                        episodeCount = tmdbDetails.episodeCount,
+                        originalLanguage = tmdbDetails.originalLanguage,
+                        country = tmdbDetails.country ?: omdbDetails?.country,
                     ),
                 )
 

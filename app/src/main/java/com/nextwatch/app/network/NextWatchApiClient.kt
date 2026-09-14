@@ -63,7 +63,7 @@ class NextWatchApiClient(
 
             val body = httpClient.get(url) {
                 parameter("api_key", tmdbApiKey)
-                parameter("append_to_response", "external_ids")
+                parameter("append_to_response", "external_ids,credits")
             }.bodyAsText()
 
             parseTmdbDetails(body, mediaType)
@@ -117,6 +117,81 @@ class NextWatchApiClient(
         null
     }
 
+    val episodeCount = if (mediaType == MediaItem.TYPE_SERIES) {
+        json.optInt("number_of_episodes", 0)
+            .takeIf { it > 0 }
+    } else {
+        null
+    }
+
+    val creator = if (mediaType == MediaItem.TYPE_SERIES) {
+        val createdBy = json.optJSONArray("created_by")
+        if (createdBy != null && createdBy.length() > 0) {
+            val names = mutableListOf<String>()
+            for (index in 0 until createdBy.length()) {
+                val name = createdBy.optJSONObject(index)
+                    ?.optString("name")
+                    ?.takeIf { it.isNotBlank() && it != "null" }
+                if (name != null && !names.contains(name)) {
+                    names.add(name)
+                }
+            }
+            names.joinToString(", ").takeIf { it.isNotBlank() }
+        } else {
+            null
+        }
+    } else {
+        null
+    }
+
+    val director = if (mediaType == MediaItem.TYPE_MOVIE) {
+        val crew = json.optJSONObject("credits")?.optJSONArray("crew")
+        if (crew != null && crew.length() > 0) {
+            val directors = mutableListOf<String>()
+            for (index in 0 until crew.length()) {
+                val member = crew.optJSONObject(index) ?: continue
+                if (member.optString("job").equals("Director", ignoreCase = true)) {
+                    val name = member.optString("name")
+                        ?.takeIf { it.isNotBlank() && it != "null" }
+                    if (name != null && !directors.contains(name)) {
+                        directors.add(name)
+                    }
+                }
+            }
+            directors.joinToString(", ").takeIf { it.isNotBlank() }
+        } else {
+            null
+        }
+    } else {
+        null
+    }
+
+    val rawLang = json.optString("original_language").takeIf { it.isNotBlank() && it != "null" }
+    val originalLanguage = rawLang?.let { code ->
+        try {
+            val locale = java.util.Locale.forLanguageTag(code)
+            val display = locale.getDisplayLanguage(java.util.Locale.ENGLISH)
+            if (display.isNotBlank() && !display.equals(code, ignoreCase = true)) {
+                display.replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.ENGLISH) else it.toString() }
+            } else {
+                code.uppercase(java.util.Locale.ENGLISH)
+            }
+        } catch (_: Exception) {
+            code.uppercase(java.util.Locale.ENGLISH)
+        }
+    }
+
+    val country = run {
+        val prodCountries = json.optJSONArray("production_countries")
+        if (prodCountries != null && prodCountries.length() > 0) {
+            prodCountries.optJSONObject(0)
+                ?.optString("name")
+                ?.takeIf { it.isNotBlank() && it != "null" }
+        } else {
+            null
+        }
+    }
+
     val genres = buildList {
         val genreArray = json.optJSONArray("genres") ?: return@buildList
 
@@ -150,6 +225,11 @@ class NextWatchApiClient(
         releaseDate = releaseDate,
         runtimeMinutes = runtimeMinutes,
         seasonCount = seasonCount,
+        episodeCount = episodeCount,
+        director = director,
+        creator = creator,
+        originalLanguage = originalLanguage,
+        country = country,
         genres = genres,
         posterUrl = posterUrl(posterPath),
         imdbId = imdbId,
@@ -198,10 +278,15 @@ class NextWatchApiClient(
     
         val imdbRating = json.optString("imdbRating")
             .toDoubleOrNull()
+
+        val director = clean(json.optString("Director"))
+        val country = clean(json.optString("Country"))
     
         return OmdbDetails(
             imdbId = imdbId,
             imdbRating = imdbRating,
+            director = director,
+            country = country,
         )
     }
 

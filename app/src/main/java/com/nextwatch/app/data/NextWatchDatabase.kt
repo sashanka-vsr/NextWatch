@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase
         MediaItem::class,
         MediaGenre::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class NextWatchDatabase : RoomDatabase() {
