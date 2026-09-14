@@ -123,7 +123,14 @@ class NextWatchViewModel(
 
     fun rewatchMedia(item: MediaItem) {
         viewModelScope.launch {
-            mediaDao.update(item.copy(status = MediaItem.STATUS_WATCHLIST))
+            mediaDao.update(item.copy(status = MediaItem.STATUS_WATCHING))
+        }
+    }
+
+    fun deleteMedia(item: MediaItem) {
+        viewModelScope.launch {
+            mediaDao.delete(item)
+            mediaGenreDao.deleteForMedia(item.id)
         }
     }
 

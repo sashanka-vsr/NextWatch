@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -25,22 +26,28 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.nextwatch.app.data.MediaItem
+import com.nextwatch.app.ui.components.savedPosterModel
+import com.nextwatch.app.ui.theme.DarkBorder
+import com.nextwatch.app.ui.theme.DarkSurface
+import com.nextwatch.app.ui.theme.DarkSurfaceVariant
+import com.nextwatch.app.ui.theme.NetflixRed
+import com.nextwatch.app.ui.theme.PureBlack
+import com.nextwatch.app.ui.theme.StarGold
 import com.nextwatch.app.ui.viewmodel.NextWatchViewModel
-import java.io.File
-
-
-import androidx.compose.ui.text.style.TextAlign
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -62,10 +69,15 @@ fun SavedMediaDetailScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = PureBlack,
         topBar = {
             TopAppBar(
                 title = {
-                    Text(media?.title ?: "Details")
+                    Text(
+                        text = media?.title ?: "Details",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
@@ -75,6 +87,27 @@ fun SavedMediaDetailScreen(
                         )
                     }
                 },
+                actions = {
+                    val currentItem = media
+                    if (currentItem != null && currentItem.status != MediaItem.STATUS_WATCHED) {
+                        IconButton(
+                            onClick = {
+                                viewModel.moveToHistory(currentItem)
+                                onBackClick()
+                            },
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = "Mark as Watched",
+                                tint = NetflixRed,
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = PureBlack,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                ),
             )
         },
     ) { innerPadding ->
@@ -86,7 +119,7 @@ fun SavedMediaDetailScreen(
                     .padding(innerPadding),
                 contentAlignment = Alignment.Center,
             ) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = NetflixRed)
             }
             return@Scaffold
         }
@@ -103,9 +136,7 @@ fun SavedMediaDetailScreen(
         ) {
             Spacer(modifier = Modifier.height(8.dp))
 
-            SavedPoster(
-                item = item,
-            )
+            SavedPoster(item = item)
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -113,9 +144,10 @@ fun SavedMediaDetailScreen(
                 text = item.title,
                 style = MaterialTheme.typography.headlineSmall,
                 fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
             )
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(6.dp))
 
             Row(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -128,7 +160,7 @@ fun SavedMediaDetailScreen(
                 if (!year.isNullOrBlank()) {
                     Text(
                         text = year,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -141,7 +173,7 @@ fun SavedMediaDetailScreen(
 
             // 2. Genres
             if (genres.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
                     text = genres.joinToString(" • "),
@@ -152,7 +184,7 @@ fun SavedMediaDetailScreen(
 
             // 3. Overview
             if (!item.overview.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
 
                 Column(
                     modifier = Modifier.fillMaxWidth(),
@@ -161,14 +193,16 @@ fun SavedMediaDetailScreen(
                         text = "Overview",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onBackground,
                     )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(6.dp))
 
                     Text(
                         text = item.overview,
-                        style = MaterialTheme.typography.bodyLarge,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        lineHeight = 22.sp,
                     )
                 }
             }
@@ -193,15 +227,15 @@ private fun SavedPoster(
             contentDescription = item.title,
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(width = 180.dp, height = 270.dp)
-                .clip(RoundedCornerShape(12.dp)),
+                .size(width = 160.dp, height = 240.dp)
+                .clip(RoundedCornerShape(8.dp)),
         )
     } else {
         Box(
             modifier = Modifier
-                .size(width = 180.dp, height = 270.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(MaterialTheme.colorScheme.surfaceContainerHigh),
+                .size(width = 160.dp, height = 240.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(DarkSurfaceVariant),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -211,19 +245,6 @@ private fun SavedPoster(
             )
         }
     }
-}
-
-private fun savedPosterModel(item: MediaItem): Any? {
-    val localFile = item.posterLocalPath
-        ?.takeIf { it.isNotBlank() }
-        ?.let(::File)
-        ?.takeIf { it.exists() && it.length() > 0L }
-
-    if (localFile != null) {
-        return localFile
-    }
-
-    return item.posterUrl?.takeIf { it.isNotBlank() }
 }
 
 @Composable
@@ -250,11 +271,11 @@ private fun SavedStats(
     }
 
     if (stats.isNotEmpty()) {
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             for ((label, value) in stats) {
                 DetailStat(
@@ -275,28 +296,29 @@ private fun DetailStat(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shape = RoundedCornerShape(8.dp),
+        color = DarkSurface,
     ) {
         Column(
             modifier = Modifier.padding(
                 horizontal = 12.dp,
-                vertical = 16.dp,
+                vertical = 12.dp,
             ),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 text = label,
-                style = MaterialTheme.typography.labelMedium,
+                style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = value,
+                text = if (label == "IMDb") "★ $value" else value,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Medium,
+                fontWeight = FontWeight.SemiBold,
+                color = if (label == "IMDb") StarGold else MaterialTheme.colorScheme.onSurface,
             )
         }
     }
@@ -321,7 +343,7 @@ private fun AdditionalInfoSection(
 
     if (infoList.isEmpty()) return
 
-    Spacer(modifier = Modifier.height(24.dp))
+    Spacer(modifier = Modifier.height(20.dp))
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -330,18 +352,19 @@ private fun AdditionalInfoSection(
             text = "Additional Information",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground,
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         Surface(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(12.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            shape = RoundedCornerShape(8.dp),
+            color = DarkSurface,
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 infoList.forEach { (label, value) ->
                     Row(
@@ -351,13 +374,13 @@ private fun AdditionalInfoSection(
                     ) {
                         Text(
                             text = label,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.weight(0.4f),
                         )
                         Text(
                             text = value,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface,
                             modifier = Modifier.weight(0.6f),

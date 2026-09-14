@@ -14,21 +14,24 @@ import com.nextwatch.app.network.SearchResult
 import com.nextwatch.app.network.TmdbMovie
 import com.nextwatch.app.ui.screens.HubScreen
 import com.nextwatch.app.ui.screens.MediaDetailScreen
+import com.nextwatch.app.ui.screens.SavedMediaDetailScreen
 import com.nextwatch.app.ui.screens.SearchScreen
+import com.nextwatch.app.ui.screens.SettingsScreen
 import com.nextwatch.app.ui.screens.WatchHistoryScreen
 import com.nextwatch.app.ui.screens.WatchlistScreen
 import com.nextwatch.app.ui.viewmodel.NextWatchViewModel
 import com.nextwatch.app.ui.viewmodel.ViewModelFactory
-import com.nextwatch.app.ui.screens.SavedMediaDetailScreen
 
 object AppRoutes {
     const val Hub = "hub"
     const val Watchlist = "watchlist"
     const val History = "history"
+    const val Settings = "settings"
     const val Search = "search"
     const val SavedMediaDetail = "saved_media_detail/{mediaId}"
 
-    fun savedMediaDetail(mediaId: Long): String ="saved_media_detail/$mediaId"
+    fun savedMediaDetail(mediaId: Long): String = "saved_media_detail/$mediaId"
+
     const val MediaDetail =
         "media_detail/{tmdbId}/{mediaType}?title={title}&year={year}&posterUrl={posterUrl}"
 
@@ -74,20 +77,38 @@ fun AppNavigation(modifier: Modifier = Modifier) {
             HubScreen(
                 onWatchlistClick = { navController.navigate(AppRoutes.Watchlist) },
                 onWatchHistoryClick = { navController.navigate(AppRoutes.History) },
+                onSearchClick = { navController.navigate(AppRoutes.Search) },
+                onSettingsClick = { navController.navigate(AppRoutes.Settings) },
             )
         }
+
         composable(AppRoutes.Watchlist) {
             WatchlistScreen(
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
                 onAddClick = { navController.navigate(AppRoutes.Search) },
                 onItemClick = { item ->
-                    navController.navigate(
-                        AppRoutes.savedMediaDetail(item.id)
-                    )
+                    navController.navigate(AppRoutes.savedMediaDetail(item.id))
                 },
             )
         }
+
+        composable(AppRoutes.History) {
+            WatchHistoryScreen(
+                viewModel = viewModel,
+                onBackClick = { navController.popBackStack() },
+                onItemClick = { item ->
+                    navController.navigate(AppRoutes.savedMediaDetail(item.id))
+                },
+            )
+        }
+
+        composable(AppRoutes.Settings) {
+            SettingsScreen(
+                onBackClick = { navController.popBackStack() },
+            )
+        }
+
         composable(AppRoutes.Search) {
             SearchScreen(
                 onBackClick = { navController.popBackStack() },
@@ -96,6 +117,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 },
             )
         }
+
         composable(
             route = AppRoutes.MediaDetail,
             arguments = listOf(
@@ -129,17 +151,6 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 onBackClick = { navController.popBackStack() },
                 onSaved = {
                     navController.popBackStack(AppRoutes.Hub, inclusive = false)
-                },
-            )
-        }
-        composable(AppRoutes.History) {
-            WatchHistoryScreen(
-                viewModel = viewModel,
-                onBackClick = { navController.popBackStack() },
-                onItemClick = { item ->
-                    navController.navigate(
-                        AppRoutes.savedMediaDetail(item.id)
-                    )
                 },
             )
         }

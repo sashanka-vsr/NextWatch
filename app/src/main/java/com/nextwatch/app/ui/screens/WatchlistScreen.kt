@@ -1,44 +1,58 @@
 package com.nextwatch.app.ui.screens
 
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SecondaryTabRow
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRowDefaults
+import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.nextwatch.app.data.MediaItem
+import com.nextwatch.app.ui.components.SavedMediaCard
+import com.nextwatch.app.ui.theme.NetflixRed
+import com.nextwatch.app.ui.theme.PureBlack
 import com.nextwatch.app.ui.viewmodel.NextWatchViewModel
-import androidx.compose.foundation.clickable
-import coil.compose.AsyncImage
+
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 private enum class WatchlistTab {
     Movies,
@@ -49,20 +63,28 @@ private enum class WatchlistTab {
 @Composable
 fun WatchlistScreen(
     viewModel: NextWatchViewModel,
-    onBackClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onBackClick: () -> Unit = {},
     onAddClick: () -> Unit = {},
     onItemClick: (MediaItem) -> Unit = {},
 ) {
-    var selectedTab by rememberSaveable { mutableIntStateOf(WatchlistTab.Movies.ordinal) }
+    val pagerState = rememberPagerState(initialPage = 0) { WatchlistTab.entries.size }
+    val coroutineScope = rememberCoroutineScope()
     val movies by viewModel.watchlistMovies.collectAsState()
     val series by viewModel.watchlistSeries.collectAsState()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
+        containerColor = PureBlack,
         topBar = {
             TopAppBar(
-                title = { Text("Watchlist") },
+                title = {
+                    Text(
+                        text = "Watchlist",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold,
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
@@ -71,15 +93,20 @@ fun WatchlistScreen(
                         )
                     }
                 },
+                actions = {
+                    IconButton(onClick = onAddClick) {
+                        Icon(
+                            imageVector = Icons.Filled.Add,
+                            contentDescription = "Add title",
+                            tint = NetflixRed,
+                        )
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = PureBlack,
+                    titleContentColor = MaterialTheme.colorScheme.onBackground,
+                ),
             )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onAddClick) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = "Add",
-                )
-            }
         },
     ) { innerPadding ->
         Column(
@@ -87,126 +114,173 @@ fun WatchlistScreen(
                 .fillMaxSize()
                 .padding(innerPadding),
         ) {
-            SecondaryTabRow(selectedTabIndex = selectedTab) {
+            SecondaryTabRow(
+                selectedTabIndex = pagerState.currentPage,
+                containerColor = PureBlack,
+                contentColor = MaterialTheme.colorScheme.onSurface,
+                indicator = {
+                    TabRowDefaults.SecondaryIndicator(
+                        modifier = Modifier.tabIndicatorOffset(pagerState.currentPage),
+                        color = NetflixRed,
+                    )
+                },
+            ) {
                 WatchlistTab.entries.forEach { tab ->
+                    val count = if (tab == WatchlistTab.Movies) movies.size else series.size
                     Tab(
-                        selected = selectedTab == tab.ordinal,
-                        onClick = { selectedTab = tab.ordinal },
-                        text = { Text(tab.name) },
+                        selected = pagerState.currentPage == tab.ordinal,
+                        onClick = {
+                            coroutineScope.launch {
+                                pagerState.animateScrollToPage(tab.ordinal)
+                            }
+                        },
+                        text = {
+                            Text(
+                                text = "${tab.name} ($count)",
+                                fontWeight = if (pagerState.currentPage == tab.ordinal) FontWeight.SemiBold else FontWeight.Normal,
+                            )
+                        },
                     )
                 }
             }
-            when (WatchlistTab.entries[selectedTab]) {
-                WatchlistTab.Movies -> MoviesWatchlist(
-                    movies = movies,
-                    onItemClick = onItemClick,
-                )
-            
-                WatchlistTab.Series -> SeriesWatchlist(
-                    series = series,
-                    onItemClick = onItemClick,
-                )
+
+            HorizontalPager(
+                state = pagerState,
+                modifier = Modifier.fillMaxSize(),
+            ) { page ->
+                when (WatchlistTab.entries[page]) {
+                WatchlistTab.Movies -> {
+                    if (movies.isEmpty()) {
+                        EmptyWatchlistState(
+                            message = "No movies in your watchlist",
+                            actionLabel = "Search Movies",
+                            onActionClick = onAddClick,
+                        )
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            items(movies, key = { it.id }) { item ->
+                                SavedMediaCard(
+                                    item = item,
+                                    viewModel = viewModel,
+                                    onClick = { onItemClick(item) },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                WatchlistTab.Series -> {
+                    if (series.isEmpty()) {
+                        EmptyWatchlistState(
+                            message = "No series in your watchlist",
+                            actionLabel = "Search Series",
+                            onActionClick = onAddClick,
+                        )
+                    } else {
+                        val watching = series.filter { it.status == MediaItem.STATUS_WATCHING }
+                        val queued = series.filter { it.status == MediaItem.STATUS_WATCHLIST }
+
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (watching.isNotEmpty()) {
+                                item(key = "watching_header") {
+                                    SectionHeader(
+                                        text = "CURRENTLY WATCHING",
+                                        isAccent = true,
+                                    )
+                                }
+                                items(watching, key = { "watching_${it.id}" }) { item ->
+                                    SavedMediaCard(
+                                        item = item,
+                                        viewModel = viewModel,
+                                        onClick = { onItemClick(item) },
+                                    )
+                                }
+                            }
+
+                            if (queued.isNotEmpty()) {
+                                item(key = "queued_header") {
+                                    SectionHeader(
+                                        text = if (watching.isNotEmpty()) "PLAN TO WATCH" else "WATCHLIST",
+                                        isAccent = false,
+                                    )
+                                }
+                                items(queued, key = { "queued_${it.id}" }) { item ->
+                                    SavedMediaCard(
+                                        item = item,
+                                        viewModel = viewModel,
+                                        onClick = { onItemClick(item) },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
 }
-
-private val listContentPadding = PaddingValues(bottom = 88.dp)
-
-@Composable
-private fun MoviesWatchlist(
-    movies: List<MediaItem>,
-    onItemClick: (MediaItem) -> Unit,
-) {
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = listContentPadding,
-    ) {
-        items(movies, key = { it.id }) { item ->
-            TitleRow(
-                item = item,
-                onClick = { onItemClick(item) },
-            )
-        }
-    }
 }
 
 @Composable
-private fun SeriesWatchlist(
-    series: List<MediaItem>,
-    onItemClick: (MediaItem) -> Unit,
+private fun SectionHeader(
+    text: String,
+    isAccent: Boolean,
 ) {
-    val watching = series.filter { it.status == MediaItem.STATUS_WATCHING }
-    val queued = series.filter { it.status == MediaItem.STATUS_WATCHLIST }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = listContentPadding,
-    ) {
-        stickyHeader(key = "currently_watching_header") {
-            SectionHeader(text = "Currently Watching")
-        }
-        items(watching, key = { "watching_${it.id}" }) { item ->
-            TitleRow(
-                item = item,
-                onClick = { onItemClick(item) },
-            )
-        }
-        item(key = "watchlist_header") {
-            SectionHeader(text = "Watchlist")
-        }
-        items(queued, key = { "watchlist_${it.id}" }) { item ->
-            TitleRow(
-                item = item,
-                onClick = { onItemClick(item) },
-            )
-        }
-    }
+    Text(
+        text = text,
+        style = MaterialTheme.typography.labelSmall,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.2.sp,
+        color = if (isAccent) NetflixRed else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
+    )
 }
 
 @Composable
-private fun SectionHeader(text: String) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        color = MaterialTheme.colorScheme.surface,
-    ) {
-        Text(
-            text = text,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-        )
-    }
-}
-
-@Composable
-private fun TitleRow(
-    item: MediaItem,
-    onClick: () -> Unit,
+private fun EmptyWatchlistState(
+    message: String,
+    actionLabel: String,
+    onActionClick: () -> Unit,
 ) {
-    Column {
-        ListItem(
-            modifier = Modifier.clickable(onClick = onClick),
-            headlineContent = {
-                Text(item.title)
-            },
-            supportingContent = {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Button(
+                onClick = onActionClick,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = NetflixRed,
+                    contentColor = PureBlack,
+                ),
+                shape = RoundedCornerShape(8.dp),
+            ) {
                 Text(
-                    item.releaseDate
-                        ?.take(4)
-                        .orEmpty()
-                        .ifBlank { item.status }
+                    text = actionLabel,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onPrimary,
                 )
-            },
-            leadingContent = {
-                AsyncImage(
-                    model = item.posterLocalPath ?: item.posterUrl,
-                    contentDescription = item.title,
-                    modifier = Modifier.size(56.dp),
-                )
-            },
-        )
-        HorizontalDivider()
+            }
+        }
     }
 }
