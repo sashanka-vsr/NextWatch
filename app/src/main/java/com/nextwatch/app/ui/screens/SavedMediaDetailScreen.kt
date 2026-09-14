@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import com.nextwatch.app.data.MediaItem
 import com.nextwatch.app.ui.viewmodel.NextWatchViewModel
+import java.io.File
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -176,9 +177,11 @@ fun SavedMediaDetailScreen(
 private fun SavedPoster(
     item: MediaItem,
 ) {
-    if (!item.posterLocalPath.isNullOrBlank()) {
+    val posterModel = savedPosterModel(item)
+
+    if (posterModel != null) {
         AsyncImage(
-            model = item.posterLocalPath,
+            model = posterModel,
             contentDescription = item.title,
             contentScale = ContentScale.Crop,
             modifier = Modifier
@@ -200,6 +203,19 @@ private fun SavedPoster(
             )
         }
     }
+}
+
+private fun savedPosterModel(item: MediaItem): Any? {
+    val localFile = item.posterLocalPath
+        ?.takeIf { it.isNotBlank() }
+        ?.let(::File)
+        ?.takeIf { it.exists() && it.length() > 0L }
+
+    if (localFile != null) {
+        return localFile
+    }
+
+    return item.posterUrl?.takeIf { it.isNotBlank() }
 }
 
 @Composable

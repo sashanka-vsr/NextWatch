@@ -4,6 +4,8 @@ import android.content.Context
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class PosterCache(
     context: Context,
@@ -33,38 +35,40 @@ class PosterCache(
         val fileName = posterFileName(tmdbId, imdbId) ?: return null
         val targetFile = File(posterDirectory, fileName)
 
-        if (targetFile.exists() && targetFile.length() > 0L) {
-            return targetFile.absolutePath
-        }
-
-        return try {
-            val connection = URL(posterUrl).openConnection() as HttpURLConnection
-
-            connection.connectTimeout = 10_000
-            connection.readTimeout = 15_000
-            connection.requestMethod = "GET"
-
-            connection.connect()
-
-            if (connection.responseCode !in 200..299) {
-                connection.disconnect()
-                return null
+        return withContext(Dispatchers.IO) {
+            if (targetFile.exists() && targetFile.length() > 0L) {
+                return@withContext targetFile.absolutePath
             }
 
-            connection.inputStream.use { input ->
-                targetFile.outputStream().use { output ->
-                    input.copyTo(output)
+            try {
+                val connection = URL(posterUrl).openConnection() as HttpURLConnection
+
+                connection.connectTimeout = 10_000
+                connection.readTimeout = 15_000
+                connection.requestMethod = "GET"
+
+                connection.connect()
+
+                if (connection.responseCode !in 200..299) {
+                    connection.disconnect()
+                    return@withContext null
                 }
+
+                connection.inputStream.use { input ->
+                    targetFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+
+                connection.disconnect()
+
+                targetFile
+                    .takeIf { it.exists() && it.length() > 0L }
+                    ?.absolutePath
+            } catch (_: Exception) {
+                targetFile.delete()
+                null
             }
-
-            connection.disconnect()
-
-            targetFile
-                .takeIf { it.exists() && it.length() > 0L }
-                ?.absolutePath
-        } catch (_: Exception) {
-            targetFile.delete()
-            null
         }
     }
 
