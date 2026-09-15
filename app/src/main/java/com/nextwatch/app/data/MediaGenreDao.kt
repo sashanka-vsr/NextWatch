@@ -29,4 +29,8 @@ interface MediaGenreDao {
         """
     )
     suspend fun getMediaIdsForGenre(genre: String): List<Long>
+
+    /** Returns all (mediaId, genre) rows for the given IDs — used for bulk in-memory filtering. */
+    @Query("SELECT mediaId, genre FROM media_genres WHERE mediaId IN (:mediaIds)")
+    fun observeGenresForMediaIds(mediaIds: List<Long>): Flow<List<MediaGenre>>
 }

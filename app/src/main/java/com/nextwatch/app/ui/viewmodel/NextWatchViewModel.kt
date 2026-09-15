@@ -7,10 +7,13 @@ import com.nextwatch.app.data.MediaGenre
 import com.nextwatch.app.data.MediaGenreDao
 import com.nextwatch.app.data.MediaItem
 import com.nextwatch.app.network.NextWatchApiClient
-import com.nextwatch.app.network.OmdbDetails
 import com.nextwatch.app.network.TmdbMovie
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.nextwatch.app.data.PosterCache
@@ -38,7 +41,34 @@ class NextWatchViewModel(
     val historySeries: StateFlow<List<MediaItem>> = mediaDao
         .getByTypeAndStatuses(MediaItem.TYPE_SERIES, HISTORY_STATUSES)
         .stateIn(viewModelScope, WhileSubscribed, emptyList())
-    
+
+    /**
+     * Genre map for the current watchlist movies: mediaId -> list of genre strings.
+     * Reacts to changes in the watchlist and to genre table changes.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val watchlistMovieGenres: StateFlow<Map<Long, List<String>>> = watchlistMovies
+        .flatMapLatest { items ->
+            val ids = items.map { it.id }
+            if (ids.isEmpty()) flowOf(emptyList<MediaGenre>())
+            else mediaGenreDao.observeGenresForMediaIds(ids)
+        }
+        .map { rows -> rows.groupBy({ it.mediaId }, { it.genre }) }
+        .stateIn(viewModelScope, WhileSubscribed, emptyMap())
+
+    /**
+     * Genre map for the current watchlist series: mediaId -> list of genre strings.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val watchlistSeriesGenres: StateFlow<Map<Long, List<String>>> = watchlistSeries
+        .flatMapLatest { items ->
+            val ids = items.map { it.id }
+            if (ids.isEmpty()) flowOf(emptyList<MediaGenre>())
+            else mediaGenreDao.observeGenresForMediaIds(ids)
+        }
+        .map { rows -> rows.groupBy({ it.mediaId }, { it.genre }) }
+        .stateIn(viewModelScope, WhileSubscribed, emptyMap())
+
     fun observeMedia(id: Long): Flow<MediaItem?> {
         return mediaDao.observeById(id)
     }
