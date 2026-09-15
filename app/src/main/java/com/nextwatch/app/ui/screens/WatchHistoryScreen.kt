@@ -1,5 +1,6 @@
 package com.nextwatch.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -86,6 +87,8 @@ fun WatchHistoryScreen(
 
     var activeActionItem by remember { mutableStateOf<MediaItem?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+    BackHandler(onBack = onBackClick)
 
     Scaffold(
         modifier = modifier.fillMaxSize(),

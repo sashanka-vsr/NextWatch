@@ -123,12 +123,28 @@ class NextWatchViewModel(
 
     fun rewatchMedia(item: MediaItem) {
         viewModelScope.launch {
+            val newStatus = if (item.type == MediaItem.TYPE_SERIES) {
+                MediaItem.STATUS_REWATCH
+            } else {
+                MediaItem.STATUS_WATCHING
+            }
+            mediaDao.update(item.copy(status = newStatus))
+        }
+    }
+
+    fun markAsWatching(item: MediaItem) {
+        viewModelScope.launch {
             mediaDao.update(item.copy(status = MediaItem.STATUS_WATCHING))
         }
     }
 
     fun deleteMedia(item: MediaItem) {
         viewModelScope.launch {
+            posterCache.deletePoster(
+                tmdbId = item.tmdbId,
+                imdbId = item.imdbId,
+                localPath = item.posterLocalPath,
+            )
             mediaDao.delete(item)
             mediaGenreDao.deleteForMedia(item.id)
         }
@@ -138,6 +154,7 @@ class NextWatchViewModel(
         val WATCHLIST_STATUSES = listOf(
             MediaItem.STATUS_WATCHLIST,
             MediaItem.STATUS_WATCHING,
+            MediaItem.STATUS_REWATCH,
         )
         val HISTORY_STATUSES = listOf(MediaItem.STATUS_WATCHED)
         val WhileSubscribed = SharingStarted.WhileSubscribed(5_000)

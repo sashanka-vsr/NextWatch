@@ -1,16 +1,22 @@
 package com.nextwatch.app.ui.navigation
 
 import android.net.Uri
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.background
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.nextwatch.app.network.SearchResult
+import com.nextwatch.app.data.AppPreferences
 import com.nextwatch.app.network.TmdbMovie
 import com.nextwatch.app.ui.screens.HubScreen
 import com.nextwatch.app.ui.screens.MediaDetailScreen
@@ -19,6 +25,7 @@ import com.nextwatch.app.ui.screens.SearchScreen
 import com.nextwatch.app.ui.screens.SettingsScreen
 import com.nextwatch.app.ui.screens.WatchHistoryScreen
 import com.nextwatch.app.ui.screens.WatchlistScreen
+import com.nextwatch.app.ui.theme.PureBlack
 import com.nextwatch.app.ui.viewmodel.NextWatchViewModel
 import com.nextwatch.app.ui.viewmodel.ViewModelFactory
 
@@ -64,29 +71,36 @@ object AppRoutes {
 fun AppNavigation(modifier: Modifier = Modifier) {
     val navController = rememberNavController()
     val context = LocalContext.current
+    val preferences = remember { AppPreferences(context) }
+    val startDestination = remember { preferences.getLandingRoute() }
     val viewModel: NextWatchViewModel = viewModel(
         factory = ViewModelFactory(context),
     )
+    val fadeSpec = tween<Float>(durationMillis = 160)
 
     NavHost(
         navController = navController,
-        startDestination = AppRoutes.Hub,
-        modifier = modifier,
+        startDestination = startDestination,
+        modifier = modifier.background(PureBlack),
+        enterTransition = { fadeIn(animationSpec = fadeSpec) },
+        exitTransition = { fadeOut(animationSpec = fadeSpec) },
+        popEnterTransition = { fadeIn(animationSpec = fadeSpec) },
+        popExitTransition = { fadeOut(animationSpec = fadeSpec) },
     ) {
         composable(AppRoutes.Hub) {
             HubScreen(
-                onWatchlistClick = { navController.navigate(AppRoutes.Watchlist) },
-                onWatchHistoryClick = { navController.navigate(AppRoutes.History) },
-                onSearchClick = { navController.navigate(AppRoutes.Search) },
-                onSettingsClick = { navController.navigate(AppRoutes.Settings) },
+                onWatchlistClick = { navController.navigateSingleTop(AppRoutes.Watchlist) },
+                onWatchHistoryClick = { navController.navigateSingleTop(AppRoutes.History) },
+                onSearchClick = { navController.navigateSingleTop(AppRoutes.Search) },
+                onSettingsClick = { navController.navigateSingleTop(AppRoutes.Settings) },
             )
         }
 
         composable(AppRoutes.Watchlist) {
             WatchlistScreen(
                 viewModel = viewModel,
-                onBackClick = { navController.popBackStack() },
-                onAddClick = { navController.navigate(AppRoutes.Search) },
+                onBackClick = { navController.popOrHome() },
+                onAddClick = { navController.navigateSingleTop(AppRoutes.Search) },
                 onItemClick = { item ->
                     navController.navigate(AppRoutes.savedMediaDetail(item.id))
                 },
@@ -96,7 +110,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         composable(AppRoutes.History) {
             WatchHistoryScreen(
                 viewModel = viewModel,
-                onBackClick = { navController.popBackStack() },
+                onBackClick = { navController.popOrHome() },
                 onItemClick = { item ->
                     navController.navigate(AppRoutes.savedMediaDetail(item.id))
                 },
@@ -105,13 +119,14 @@ fun AppNavigation(modifier: Modifier = Modifier) {
 
         composable(AppRoutes.Settings) {
             SettingsScreen(
-                onBackClick = { navController.popBackStack() },
+                preferences = preferences,
+                onBackClick = { navController.popOrHome() },
             )
         }
 
         composable(AppRoutes.Search) {
             SearchScreen(
-                onBackClick = { navController.popBackStack() },
+                onBackClick = { navController.popOrHome() },
                 onResultClick = { media ->
                     navController.navigate(AppRoutes.mediaDetail(media))
                 },
@@ -150,7 +165,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                 viewModel = viewModel,
                 onBackClick = { navController.popBackStack() },
                 onSaved = {
-                    navController.popBackStack(AppRoutes.Hub, inclusive = false)
+                    navController.popBackStack()
                 },
             )
         }
@@ -173,6 +188,23 @@ fun AppNavigation(modifier: Modifier = Modifier) {
                     navController.popBackStack()
                 },
             )
+        }
+    }
+}
+
+private fun NavHostController.navigateSingleTop(route: String) {
+    navigate(route) {
+        launchSingleTop = true
+    }
+}
+
+private fun NavHostController.popOrHome() {
+    if (popBackStack()) return
+    if (currentDestination?.route == AppRoutes.Hub) return
+    navigate(AppRoutes.Hub) {
+        launchSingleTop = true
+        popUpTo(graph.startDestinationId) {
+            inclusive = true
         }
     }
 }

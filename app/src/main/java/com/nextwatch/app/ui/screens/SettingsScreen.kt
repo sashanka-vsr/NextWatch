@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.nextwatch.app.data.AppPreferences
 import com.nextwatch.app.ui.theme.DarkBorder
 import com.nextwatch.app.ui.theme.DarkSurface
 import com.nextwatch.app.ui.theme.NetflixRed
@@ -45,11 +46,18 @@ import androidx.compose.material3.IconButton
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
+    preferences: AppPreferences,
     modifier: Modifier = Modifier,
     onBackClick: () -> Unit = {},
 ) {
-    var selectedLandingPage by remember { mutableStateOf("Hero (default)") }
-    val landingOptions = listOf("Hero (default)", "Watchlist", "Watch History")
+    var selectedLandingPage by remember {
+        mutableStateOf(preferences.getLandingRoute())
+    }
+    val landingOptions = listOf(
+        "Home" to AppPreferences.ROUTE_HOME,
+        "Watchlist" to AppPreferences.ROUTE_WATCHLIST,
+        "Watch History" to AppPreferences.ROUTE_HISTORY,
+    )
     var omdbKeyInput by remember { mutableStateOf("") }
 
     Scaffold(
@@ -123,7 +131,7 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    landingOptions.forEach { option ->
+                    landingOptions.forEach { (label, route) ->
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -131,15 +139,18 @@ fun SettingsScreen(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             RadioButton(
-                                selected = selectedLandingPage == option,
-                                onClick = { selectedLandingPage = option },
+                                selected = selectedLandingPage == route,
+                                onClick = {
+                                    selectedLandingPage = route
+                                    preferences.setLandingRoute(route)
+                                },
                                 colors = RadioButtonDefaults.colors(
                                     selectedColor = NetflixRed,
                                     unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                 ),
                             )
                             Text(
-                                text = option,
+                                text = label,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier.padding(start = 8.dp),

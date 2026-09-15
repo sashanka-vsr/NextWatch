@@ -71,20 +71,23 @@ fun SearchScreen(
 ) {
     val apiClient = remember { NextWatchApiClient() }
     val focusManager = LocalFocusManager.current
-    var query by rememberSaveable { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<TmdbMovie>>(emptyList()) }
+    var query by rememberSaveable { mutableStateOf(SearchRetain.query) }
+    var results by remember { mutableStateOf(SearchRetain.results) }
     var searching by remember { mutableStateOf(false) }
 
     LaunchedEffect(query) {
+        SearchRetain.query = query
         val trimmed = query.trim()
         if (trimmed.length < 2) {
             results = emptyList()
+            SearchRetain.results = emptyList()
             searching = false
             return@LaunchedEffect
         }
         delay(350)
         searching = true
         results = runCatching { apiClient.searchMovies(trimmed) }.getOrDefault(emptyList())
+        SearchRetain.results = results
         searching = false
     }
 
@@ -283,4 +286,9 @@ private fun SearchResultCard(
             }
         }
     }
+}
+
+private object SearchRetain {
+    var query: String = ""
+    var results: List<TmdbMovie> = emptyList()
 }

@@ -37,8 +37,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.text.SimpleDateFormat
+import java.util.Locale
 import coil.compose.AsyncImage
 import com.nextwatch.app.data.MediaItem
 import com.nextwatch.app.network.NextWatchApiClient
@@ -186,6 +189,42 @@ fun MediaDetailScreen(
                         mediaType = media.mediaType,
                         imdbRating = omdbDetails?.imdbRating,
                     )
+
+                    val genres = tmdbDetails?.genres.orEmpty()
+                    if (genres.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = genres.joinToString(" • "),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    val overview = tmdbDetails?.overview
+                    if (!overview.isNullOrBlank()) {
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            Text(
+                                text = "Overview",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onBackground,
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = overview,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                lineHeight = 22.sp,
+                            )
+                        }
+                    }
+
+                    SearchAdditionalInfo(
+                        details = tmdbDetails,
+                        omdbDetails = omdbDetails,
+                        mediaType = media.mediaType,
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -232,28 +271,26 @@ private fun DetailsRow(
     mediaType: String,
     imdbRating: Double?,
 ) {
+    val stats = buildList {
+        if (mediaType == MediaItem.TYPE_SERIES) {
+            details?.seasonCount?.let { add("Seasons" to it.toString()) }
+            details?.episodeCount?.let { add("Episodes" to it.toString()) }
+        } else {
+            details?.runtimeMinutes?.let { add("Runtime" to "$it min") }
+        }
+        imdbRating?.let { add("IMDb" to String.format(Locale.US, "%.1f", it)) }
+    }
+
+    if (stats.isEmpty()) return
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        val runtimeOrSeason = if (mediaType == MediaItem.TYPE_SERIES) {
-            details?.seasonCount?.let { "$it Seasons" }
-        } else {
-            details?.runtimeMinutes?.let { "$it min" }
-        }
-
-        if (runtimeOrSeason != null) {
+        for ((label, value) in stats) {
             RatingStat(
-                label = if (mediaType == MediaItem.TYPE_SERIES) "Seasons" else "Runtime",
-                value = runtimeOrSeason,
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        if (imdbRating != null) {
-            RatingStat(
-                label = "IMDb",
-                value = "★ ${String.format("%.1f", imdbRating)}",
+                label = label,
+                value = if (label == "IMDb") "★ $value" else value,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -315,5 +352,89 @@ fun TypeBadge(
                 vertical = 2.dp,
             ),
         )
+    }
+}
+
+@Composable
+private fun SearchAdditionalInfo(
+    details: TmdbDetails?,
+    omdbDetails: OmdbDetails?,
+    mediaType: String,
+) {
+    val infoList = buildList {
+        if (mediaType == MediaItem.TYPE_SERIES) {
+            details?.creator?.takeIf { it.isNotBlank() }?.let { add("Creator" to it) }
+            details?.releaseDate?.takeIf { it.isNotBlank() }
+                ?.let { add("First Aired" to formatSearchReleaseDate(it)) }
+        } else {
+            val director = details?.director ?: omdbDetails?.director
+            director?.takeIf { it.isNotBlank() }?.let { add("Director" to it) }
+            details?.releaseDate?.takeIf { it.isNotBlank() }
+                ?.let { add("Release Date" to formatSearchReleaseDate(it)) }
+        }
+
+        details?.originalLanguage?.takeIf { it.isNotBlank() }?.let { add("Language" to it) }
+        val country = details?.country ?: omdbDetails?.country
+        country?.takeIf { it.isNotBlank() }?.let { add("Country" to it) }
+    }
+
+    if (infoList.isEmpty()) return
+
+    Spacer(modifier = Modifier.height(20.dp))
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = "Additional Information",
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onBackground,
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            color = DarkSurface,
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                infoList.forEach { (label, value) ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top,
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(0.4f),
+                        )
+                        Text(
+                            text = value,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.weight(0.6f),
+                            textAlign = TextAlign.End,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun formatSearchReleaseDate(rawDate: String): String {
+    return try {
+        val parser = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val formatter = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
+        val date = parser.parse(rawDate)
+        if (date != null) formatter.format(date) else rawDate
+    } catch (_: Exception) {
+        rawDate
     }
 }

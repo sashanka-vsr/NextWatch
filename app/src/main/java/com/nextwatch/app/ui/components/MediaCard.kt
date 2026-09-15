@@ -33,6 +33,7 @@ import com.nextwatch.app.ui.theme.DarkSurface
 import com.nextwatch.app.ui.theme.DarkSurfaceVariant
 import com.nextwatch.app.ui.theme.NetflixRed
 import com.nextwatch.app.ui.theme.StarGold
+import com.nextwatch.app.ui.theme.WatchingGreen
 import com.nextwatch.app.ui.viewmodel.NextWatchViewModel
 import java.io.File
 import java.util.Locale
@@ -59,7 +60,17 @@ fun SavedMediaCard(
     trailingContent: @Composable (() -> Unit)? = null,
 ) {
     val genres by viewModel.observeGenres(item.id).collectAsState(initial = emptyList())
-    val isRewatching = item.status == MediaItem.STATUS_WATCHING
+    val isWatching = item.status == MediaItem.STATUS_WATCHING
+    val isCurrentlyWatchingSeries =
+        isWatching && item.type == MediaItem.TYPE_SERIES
+    val isRewatching =
+        (isWatching && item.type == MediaItem.TYPE_MOVIE) ||
+        (item.status == MediaItem.STATUS_REWATCH)
+    val statusAccent = when {
+        isCurrentlyWatchingSeries -> WatchingGreen
+        isRewatching -> NetflixRed
+        else -> null
+    }
 
     Surface(
         modifier = modifier
@@ -75,14 +86,13 @@ fun SavedMediaCard(
                 .padding(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // Subtle Red Accent Indicator for Re-Watching
-            if (isRewatching) {
+            if (statusAccent != null) {
                 Box(
                     modifier = Modifier
                         .width(3.dp)
                         .height(64.dp)
                         .clip(RoundedCornerShape(2.dp))
-                        .background(NetflixRed)
+                        .background(statusAccent)
                 )
                 Spacer(modifier = Modifier.width(6.dp))
             }
@@ -147,9 +157,12 @@ fun SavedMediaCard(
                         if (isNotEmpty()) append(" · ")
                         append(item.type)
                     }
-                    if (isRewatching) {
+                    if (isCurrentlyWatchingSeries) {
                         if (isNotEmpty()) append(" · ")
-                        append("Re-watching")
+                        append("Watching")
+                    } else if (isRewatching) {
+                        if (isNotEmpty()) append(" · ")
+                        append("Re-Watch")
                     }
                 }
 
@@ -157,7 +170,7 @@ fun SavedMediaCard(
                     Text(
                         text = line2,
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (isRewatching && line2.endsWith("Re-watching")) NetflixRed else MaterialTheme.colorScheme.onSurfaceVariant,
+                        color = statusAccent ?: MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )

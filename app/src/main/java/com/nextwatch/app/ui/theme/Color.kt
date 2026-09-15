@@ -14,6 +14,7 @@ val NetflixRed = Color(0xFFE50914)
 val DarkRedAccent = Color(0xFFB81D24)
 val SubtleRed = Color(0xFF2B0A0C)
 val RedIndicator = Color(0xFFE50914)
+val WatchingGreen = Color(0xFF3D9A5F)
 
 // Text Colors
 val TextPrimary = Color(0xFFFFFFFF)

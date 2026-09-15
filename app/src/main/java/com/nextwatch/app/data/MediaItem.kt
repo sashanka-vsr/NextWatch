@@ -52,5 +52,6 @@ data class MediaItem(
         const val STATUS_WATCHLIST = "Watchlist"
         const val STATUS_WATCHING = "Watching"
         const val STATUS_WATCHED = "Watched"
+        const val STATUS_REWATCH = "Rewatch"
     }
 }

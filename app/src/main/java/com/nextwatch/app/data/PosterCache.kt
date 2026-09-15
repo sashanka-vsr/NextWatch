@@ -72,6 +72,32 @@ class PosterCache(
         }
     }
 
+    suspend fun deletePoster(
+        tmdbId: Int?,
+        imdbId: String?,
+        localPath: String? = null,
+    ) {
+        withContext(Dispatchers.IO) {
+            val files = buildSet {
+                posterFileName(tmdbId, imdbId)?.let { name ->
+                    add(File(posterDirectory, name))
+                }
+                localPath
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let(::File)
+                    ?.let(::add)
+            }
+
+            files.forEach { file ->
+                runCatching {
+                    if (file.exists()) {
+                        file.delete()
+                    }
+                }
+            }
+        }
+    }
+
     private fun posterFileName(
         tmdbId: Int?,
         imdbId: String?,
