@@ -58,7 +58,7 @@ fun SettingsScreen(
         "Watchlist" to AppPreferences.ROUTE_WATCHLIST,
         "Watch History" to AppPreferences.ROUTE_HISTORY,
     )
-    var omdbKeyInput by remember { mutableStateOf("") }
+    var omdbKeyInput by remember { mutableStateOf(preferences.getOmdbApiKey()) }
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -199,7 +199,10 @@ fun SettingsScreen(
 
                     OutlinedTextField(
                         value = omdbKeyInput,
-                        onValueChange = { omdbKeyInput = it },
+                        onValueChange = {
+                            omdbKeyInput = it
+                            preferences.setOmdbApiKey(it)
+                        },
                         placeholder = { Text("Enter your API key") },
                         modifier = Modifier.fillMaxWidth(),
                         singleLine = true,

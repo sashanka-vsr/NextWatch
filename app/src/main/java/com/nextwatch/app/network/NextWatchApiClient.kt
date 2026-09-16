@@ -23,6 +23,7 @@ class NextWatchApiClient(
     private val httpClient: HttpClient = sharedClient,
     private val tmdbApiKey: String = ApiKeys.TMDB,
     private val omdbApiKey: String = ApiKeys.OMDB,
+    private val omdbApiKeyProvider: (() -> String)? = null,
 ) {
 
     suspend fun searchMovies(query: String): List<TmdbMovie> = withContext(Dispatchers.IO) {
@@ -40,14 +41,18 @@ class NextWatchApiClient(
 
     suspend fun fetchOmdbDetails(
         imdbId: String,
-        ): OmdbDetails? = withContext(Dispatchers.IO) {
+        apiKey: String? = null,
+    ): OmdbDetails? = withContext(Dispatchers.IO) {
+        val key = apiKey?.trim()?.takeIf { it.isNotEmpty() }
+            ?: omdbApiKeyProvider?.invoke()?.trim()?.takeIf { it.isNotEmpty() }
+            ?: omdbApiKey
 
-            val body = httpClient.get(OMDB_URL) {
-                parameter("apikey", omdbApiKey)
-                parameter("i", imdbId)
-            }.bodyAsText()
+        val body = httpClient.get(OMDB_URL) {
+            parameter("apikey", key)
+            parameter("i", imdbId)
+        }.bodyAsText()
 
-            parseOmdbDetails(body)
+        parseOmdbDetails(body)
     }
 
     suspend fun fetchTmdbDetails(

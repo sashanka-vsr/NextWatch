@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.Locale
 import coil.compose.AsyncImage
+import androidx.compose.ui.platform.LocalContext
+import com.nextwatch.app.data.AppPreferences
 import com.nextwatch.app.data.MediaItem
 import com.nextwatch.app.network.NextWatchApiClient
 import com.nextwatch.app.network.OmdbDetails
@@ -63,7 +65,13 @@ fun MediaDetailScreen(
     onSaved: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val apiClient = remember { NextWatchApiClient() }
+    val context = LocalContext.current
+    val preferences = remember { AppPreferences(context) }
+    val apiClient = remember {
+        NextWatchApiClient(
+            omdbApiKeyProvider = { preferences.getEffectiveOmdbApiKey() },
+        )
+    }
 
     var tmdbDetails by remember { mutableStateOf<TmdbDetails?>(null) }
     var omdbDetails by remember { mutableStateOf<OmdbDetails?>(null) }

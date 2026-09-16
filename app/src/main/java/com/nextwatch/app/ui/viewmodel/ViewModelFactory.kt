@@ -3,8 +3,10 @@ package com.nextwatch.app.ui.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import com.nextwatch.app.data.AppPreferences
 import com.nextwatch.app.data.DatabaseProvider
 import com.nextwatch.app.data.PosterCache
+import com.nextwatch.app.network.NextWatchApiClient
 
 class ViewModelFactory(
     context: Context,
@@ -14,6 +16,7 @@ class ViewModelFactory(
     private val mediaDao = DatabaseProvider.mediaDao(appContext)
     private val mediaGenreDao = DatabaseProvider.mediaGenreDao(appContext)
     private val posterCache = PosterCache(appContext)
+    private val preferences = AppPreferences(appContext)
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -22,6 +25,9 @@ class ViewModelFactory(
                 mediaDao = mediaDao,
                 mediaGenreDao = mediaGenreDao,
                 posterCache = posterCache,
+                apiClient = NextWatchApiClient(
+                    omdbApiKeyProvider = { preferences.getEffectiveOmdbApiKey() },
+                ),
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

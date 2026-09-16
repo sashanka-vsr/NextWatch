@@ -1,6 +1,7 @@
 package com.nextwatch.app.data
 
 import android.content.Context
+import com.nextwatch.app.network.ApiKeys
 
 class AppPreferences(
     context: Context,
@@ -23,6 +24,19 @@ class AppPreferences(
         prefs.edit().putString(KEY_LANDING, value).apply()
     }
 
+    fun getOmdbApiKey(): String {
+        return prefs.getString(KEY_OMDB_API_KEY, "").orEmpty()
+    }
+
+    fun setOmdbApiKey(key: String) {
+        prefs.edit().putString(KEY_OMDB_API_KEY, key.trim()).apply()
+    }
+
+    fun getEffectiveOmdbApiKey(): String {
+        val customKey = getOmdbApiKey().trim()
+        return if (customKey.isNotEmpty()) customKey else ApiKeys.OMDB
+    }
+
     companion object {
         const val ROUTE_HOME = "hub"
         const val ROUTE_WATCHLIST = "watchlist"
@@ -30,5 +44,6 @@ class AppPreferences(
 
         private const val PREFS_NAME = "nextwatch_prefs"
         private const val KEY_LANDING = "landing_page"
+        private const val KEY_OMDB_API_KEY = "omdb_api_key"
     }
 }
