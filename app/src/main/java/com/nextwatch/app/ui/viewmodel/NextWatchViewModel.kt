@@ -28,19 +28,19 @@ class NextWatchViewModel(
 
     val watchlistMovies: StateFlow<List<MediaItem>> = mediaDao
         .getByTypeAndStatuses(MediaItem.TYPE_MOVIE, WATCHLIST_STATUSES)
-        .stateIn(viewModelScope, WhileSubscribed, emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val watchlistSeries: StateFlow<List<MediaItem>> = mediaDao
         .getByTypeAndStatuses(MediaItem.TYPE_SERIES, WATCHLIST_STATUSES)
-        .stateIn(viewModelScope, WhileSubscribed, emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val historyMovies: StateFlow<List<MediaItem>> = mediaDao
         .getByTypeAndStatuses(MediaItem.TYPE_MOVIE, HISTORY_STATUSES)
-        .stateIn(viewModelScope, WhileSubscribed, emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     val historySeries: StateFlow<List<MediaItem>> = mediaDao
         .getByTypeAndStatuses(MediaItem.TYPE_SERIES, HISTORY_STATUSES)
-        .stateIn(viewModelScope, WhileSubscribed, emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     /**
      * Genre map for the current watchlist movies: mediaId -> list of genre strings.
@@ -54,7 +54,7 @@ class NextWatchViewModel(
             else mediaGenreDao.observeGenresForMediaIds(ids)
         }
         .map { rows -> rows.groupBy({ it.mediaId }, { it.genre }) }
-        .stateIn(viewModelScope, WhileSubscribed, emptyMap())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     /**
      * Genre map for the current watchlist series: mediaId -> list of genre strings.
@@ -67,7 +67,7 @@ class NextWatchViewModel(
             else mediaGenreDao.observeGenresForMediaIds(ids)
         }
         .map { rows -> rows.groupBy({ it.mediaId }, { it.genre }) }
-        .stateIn(viewModelScope, WhileSubscribed, emptyMap())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
 
     fun observeMedia(id: Long): Flow<MediaItem?> {
         return mediaDao.observeById(id)
@@ -187,6 +187,5 @@ class NextWatchViewModel(
             MediaItem.STATUS_REWATCH,
         )
         val HISTORY_STATUSES = listOf(MediaItem.STATUS_WATCHED)
-        val WhileSubscribed = SharingStarted.WhileSubscribed(5_000)
     }
 }
