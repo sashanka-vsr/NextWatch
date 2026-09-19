@@ -120,6 +120,7 @@ fun AppNavigation(modifier: Modifier = Modifier) {
         composable(AppRoutes.Settings) {
             SettingsScreen(
                 preferences = preferences,
+                viewModel = viewModel,
                 onBackClick = { navController.popOrHome() },
             )
         }

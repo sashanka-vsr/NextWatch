@@ -61,4 +61,10 @@ interface MediaDao {
         """
     )
     fun getByTypeAndStatuses(type: String, statuses: List<String>): Flow<List<MediaItem>>
+
+    @Query("SELECT * FROM media_items ORDER BY dateAdded DESC")
+    suspend fun getAllItems(): List<MediaItem>
+
+    @Query("DELETE FROM media_items")
+    suspend fun deleteAll()
 }

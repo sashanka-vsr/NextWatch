@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelProvider
 import com.nextwatch.app.data.AppPreferences
 import com.nextwatch.app.data.DatabaseProvider
 import com.nextwatch.app.data.PosterCache
+import com.nextwatch.app.data.backup.BackupRepository
 import com.nextwatch.app.network.NextWatchApiClient
 
 class ViewModelFactory(
@@ -13,11 +14,19 @@ class ViewModelFactory(
 ) : ViewModelProvider.Factory {
 
     private val appContext = context.applicationContext
+    private val database = DatabaseProvider.getDatabase(appContext)
     private val mediaDao = DatabaseProvider.mediaDao(appContext)
     private val mediaGenreDao = DatabaseProvider.mediaGenreDao(appContext)
     private val watchProviderDao = DatabaseProvider.watchProviderDao(appContext)
     private val posterCache = PosterCache(appContext)
     private val preferences = AppPreferences(appContext)
+    private val backupRepository = BackupRepository(
+        database = database,
+        mediaDao = mediaDao,
+        mediaGenreDao = mediaGenreDao,
+        posterCache = posterCache,
+        cacheDir = appContext.cacheDir,
+    )
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -30,6 +39,7 @@ class ViewModelFactory(
                 apiClient = NextWatchApiClient(
                     omdbApiKeyProvider = { preferences.getEffectiveOmdbApiKey() },
                 ),
+                backupRepository = backupRepository,
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")

@@ -11,7 +11,7 @@ class PosterCache(
     context: Context,
 ) {
 
-    private val posterDirectory = File(
+    val posterDirectory = File(
         context.applicationContext.filesDir,
         "posters",
     ).apply {
@@ -98,7 +98,17 @@ class PosterCache(
         }
     }
 
-    private fun posterFileName(
+    suspend fun cleanObsoletePosters(activeLocalPaths: Set<String>) {
+        withContext(Dispatchers.IO) {
+            posterDirectory.listFiles()?.forEach { file ->
+                if (file.isFile && file.absolutePath !in activeLocalPaths) {
+                    runCatching { file.delete() }
+                }
+            }
+        }
+    }
+
+    fun posterFileName(
         tmdbId: Int?,
         imdbId: String?,
     ): String? {
