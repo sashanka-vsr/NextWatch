@@ -1,6 +1,8 @@
 package com.nextwatch.app.ui.screens
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +30,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -66,11 +70,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nextwatch.app.data.AppPreferences
 import com.nextwatch.app.data.MediaItem
+import com.nextwatch.app.ui.components.FilteredEmptyState
+import com.nextwatch.app.ui.components.MediaFilterBottomSheet
+import com.nextwatch.app.ui.components.MediaSortBottomSheet
 import com.nextwatch.app.ui.components.SavedMediaCard
 import com.nextwatch.app.ui.theme.DarkBorder
 import com.nextwatch.app.ui.theme.DarkSurface
@@ -106,14 +116,17 @@ fun WatchlistScreen(
     var activeActionItem by remember { mutableStateOf<MediaItem?>(null) }
     val actionSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    val context = LocalContext.current
+    val preferences = remember { AppPreferences(context) }
+
     // ── filter / sort sheet state ─────────────────────────────────────────────
     var showFilterSheet by rememberSaveable { mutableStateOf(false) }
     var showSortSheet by rememberSaveable { mutableStateOf(false) }
 
     var movieFilter by rememberSaveable { mutableStateOf(WatchlistFilterState.Empty) }
     var seriesFilter by rememberSaveable { mutableStateOf(WatchlistFilterState.Empty) }
-    var movieSort by rememberSaveable { mutableStateOf(WatchlistSortOrder.RecentlyAdded) }
-    var seriesSort by rememberSaveable { mutableStateOf(WatchlistSortOrder.RecentlyAdded) }
+    var movieSort by rememberSaveable { mutableStateOf(preferences.getWatchlistMovieSort()) }
+    var seriesSort by rememberSaveable { mutableStateOf(preferences.getWatchlistSeriesSort()) }
 
     val isMoviesTab = pagerState.currentPage == WatchlistTab.Movies.ordinal
 
@@ -135,15 +148,19 @@ fun WatchlistScreen(
     }
 
     // Series: filter → sort, but pin Currently Watching to top unless user
-    // explicitly chose a sort other than RecentlyAdded.
-    val displaySeries = remember(series, seriesGenres, seriesFilter, seriesSort) {
+    // explicitly chose a sort other than default (Added, Descending).
+    val isDefaultSeriesSort = seriesSort.criterion == WatchlistSortCriterion.Added &&
+        seriesSort.direction == SortDirection.Descending
+
+    val displaySeries = remember(series, seriesGenres, seriesFilter, seriesSort, isDefaultSeriesSort) {
         val filtered = series.applyFilter(seriesFilter, seriesGenres)
-        if (seriesSort == WatchlistSortOrder.RecentlyAdded) {
+        if (isDefaultSeriesSort) {
             // Default: preserve the Currently Watching pinning
+            val defaultSort = WatchlistSort(WatchlistSortCriterion.Added, SortDirection.Descending)
             val watching = filtered.filter { it.status == MediaItem.STATUS_WATCHING }
-                .applySort(WatchlistSortOrder.RecentlyAdded)
+                .applySort(defaultSort)
             val rest = filtered.filter { it.status != MediaItem.STATUS_WATCHING }
-                .applySort(WatchlistSortOrder.RecentlyAdded)
+                .applySort(defaultSort)
             watching + rest
         } else {
             // User explicitly chose a sort → flat sorted list (no special pinning)
@@ -152,7 +169,7 @@ fun WatchlistScreen(
     }
 
     // For the Series tab: whether to show the Currently Watching section header
-    val showWatchingSection = seriesSort == WatchlistSortOrder.RecentlyAdded
+    val showWatchingSection = isDefaultSeriesSort
     val watchingSeries = if (showWatchingSection) {
         displaySeries.filter { it.status == MediaItem.STATUS_WATCHING }
     } else emptyList()
@@ -541,291 +558,50 @@ fun WatchlistScreen(
 
     // ── Sort Bottom Sheet ─────────────────────────────────────────────────────
     if (showSortSheet) {
-        val sortSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        val availableSorts = if (isMoviesTab) MovieSortOrders else SeriesSortOrders
+        val availableCriteria = if (isMoviesTab) MovieSortCriteria else SeriesSortCriteria
         val currentSort = if (isMoviesTab) movieSort else seriesSort
 
-        ModalBottomSheet(
+        MediaSortBottomSheet(
             onDismissRequest = { showSortSheet = false },
-            sheetState = sortSheetState,
-            containerColor = DarkSurfaceVariant,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            dragHandle = null,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
-            ) {
-                Text(
-                    text = "Sort by",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = DarkBorder)
-                Spacer(modifier = Modifier.height(4.dp))
-
-                availableSorts.forEach { order ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable {
-                                if (isMoviesTab) movieSort = order else seriesSort = order
-                                coroutineScope.launch {
-                                    sortSheetState.hide()
-                                    showSortSheet = false
-                                }
-                            }
-                            .padding(vertical = 10.dp, horizontal = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(
-                            selected = order == currentSort,
-                            onClick = {
-                                if (isMoviesTab) movieSort = order else seriesSort = order
-                                coroutineScope.launch {
-                                    sortSheetState.hide()
-                                    showSortSheet = false
-                                }
-                            },
-                            colors = RadioButtonDefaults.colors(
-                                selectedColor = NetflixRed,
-                                unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                            ),
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = order.label,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (order == currentSort) MaterialTheme.colorScheme.onSurface
-                                    else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
+            currentSort = currentSort,
+            availableCriteria = availableCriteria,
+            onSortChange = { newSort ->
+                if (isMoviesTab) {
+                    movieSort = newSort
+                    preferences.setWatchlistMovieSort(newSort)
+                } else {
+                    seriesSort = newSort
+                    preferences.setWatchlistSeriesSort(newSort)
                 }
-            }
-        }
+            },
+        )
     }
 
     // ── Filter Bottom Sheet ───────────────────────────────────────────────────
     if (showFilterSheet) {
-        val filterSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val isMovies = isMoviesTab
         val currentGenrePool = if (isMovies) allMovieGenres else allSeriesGenres
         val langPool = if (isMovies) movies.distinctLanguages() else series.distinctLanguages()
         val directorPool = if (isMovies) movies.distinctDirectors() else series.distinctCreators()
         val currentFilterState = if (isMovies) movieFilter else seriesFilter
 
-        // Local mutable copy while sheet is open
-        var draftFilter by remember { mutableStateOf(currentFilterState) }
-
-        ModalBottomSheet(
-            onDismissRequest = {
-                // Dismiss without saving — revert to the filter before sheet opened
+        MediaFilterBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            isMovies = isMovies,
+            currentFilter = currentFilterState,
+            genrePool = currentGenrePool,
+            languagePool = langPool,
+            creatorPool = directorPool,
+            onApplyFilter = { appliedFilter ->
+                if (isMovies) movieFilter = appliedFilter else seriesFilter = appliedFilter
                 showFilterSheet = false
             },
-            sheetState = filterSheetState,
-            containerColor = DarkSurfaceVariant,
-            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-            dragHandle = null,
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .navigationBarsPadding()
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 20.dp, vertical = 20.dp),
-            ) {
-                // Header row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text(
-                        text = "Filter",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                    if (draftFilter.isActive) {
-                        Text(
-                            text = "Clear all",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = NetflixRed,
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .clickable { draftFilter = WatchlistFilterState.Empty }
-                                .padding(horizontal = 6.dp, vertical = 4.dp),
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(16.dp))
-                HorizontalDivider(color = DarkBorder)
-
-                // ── Genre ──────────────────────────────────────────────────
-                if (currentGenrePool.isNotEmpty()) {
-                    FilterSection(title = "Genre") {
-                        ChipGroup(
-                            options = currentGenrePool,
-                            selected = draftFilter.genres,
-                            onToggle = { genre ->
-                                draftFilter = draftFilter.copy(
-                                    genres = draftFilter.genres.toggle(genre),
-                                )
-                            },
-                        )
-                    }
-                }
-
-                // ── Language ───────────────────────────────────────────────
-                if (langPool.isNotEmpty()) {
-                    FilterSection(title = "Language") {
-                        ChipGroup(
-                            options = langPool,
-                            selected = draftFilter.languages,
-                            onToggle = { lang ->
-                                draftFilter = draftFilter.copy(
-                                    languages = draftFilter.languages.toggle(lang),
-                                )
-                            },
-                        )
-                    }
-                }
-
-                // ── Director / Creator ─────────────────────────────────────
-                if (directorPool.isNotEmpty()) {
-                    FilterSection(
-                        title = if (isMovies) "Director" else "Creator",
-                    ) {
-                        ChipGroup(
-                            options = directorPool,
-                            selected = if (isMovies) draftFilter.directors else draftFilter.creators,
-                            onToggle = { person ->
-                                draftFilter = if (isMovies) {
-                                    draftFilter.copy(directors = draftFilter.directors.toggle(person))
-                                } else {
-                                    draftFilter.copy(creators = draftFilter.creators.toggle(person))
-                                }
-                            },
-                        )
-                    }
-                }
-
-                // ── IMDb Rating ────────────────────────────────────────────
-                val ratingOptions = listOf(9.0, 8.0, 7.0, 6.0, 5.0)
-                FilterSection(title = "Minimum IMDb rating") {
-                    ChipGroup(
-                        options = ratingOptions.map { "≥ ${"%.0f".format(it)}" },
-                        selected = draftFilter.ratingMin?.let { setOf("≥ ${"%.0f".format(it)}") } ?: emptySet(),
-                        onToggle = { chip ->
-                            val value = chip.removePrefix("≥ ").trim().toDoubleOrNull()
-                            draftFilter = if (value != null && draftFilter.ratingMin == value) {
-                                // Deselect
-                                draftFilter.copy(ratingMin = null)
-                            } else {
-                                draftFilter.copy(ratingMin = value)
-                            }
-                        },
-                    )
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-
-                // ── Apply button ───────────────────────────────────────────
-                Button(
-                    onClick = {
-                        if (isMovies) movieFilter = draftFilter else seriesFilter = draftFilter
-                        coroutineScope.launch {
-                            filterSheetState.hide()
-                            showFilterSheet = false
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = NetflixRed,
-                        contentColor = PureBlack,
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                ) {
-                    Text(
-                        text = "Apply",
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                }
-            }
-        }
+        )
     }
     }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-private fun Set<String>.toggle(item: String): Set<String> =
-    if (item in this) this - item else this + item
-
-@Composable
-private fun FilterSection(
-    title: String,
-    content: @Composable () -> Unit,
-) {
-    Spacer(modifier = Modifier.height(16.dp))
-    Text(
-        text = title.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = 1.sp,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(bottom = 8.dp),
-    )
-    content()
-    Spacer(modifier = Modifier.height(8.dp))
-    HorizontalDivider(color = DarkBorder)
-}
-
-@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
-@Composable
-private fun ChipGroup(
-    options: List<String>,
-    selected: Set<String>,
-    onToggle: (String) -> Unit,
-) {
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        options.forEach { option ->
-            val isSelected = option in selected
-            FilterChip(
-                selected = isSelected,
-                onClick = { onToggle(option) },
-                label = {
-                    Text(
-                        text = option,
-                        style = MaterialTheme.typography.labelMedium,
-                    )
-                },
-                colors = FilterChipDefaults.filterChipColors(
-                    containerColor = DarkSurface,
-                    labelColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    selectedContainerColor = NetflixRed.copy(alpha = 0.18f),
-                    selectedLabelColor = NetflixRed,
-                ),
-                border = FilterChipDefaults.filterChipBorder(
-                    enabled = true,
-                    selected = isSelected,
-                    borderColor = DarkBorder,
-                    selectedBorderColor = NetflixRed.copy(alpha = 0.6f),
-                ),
-            )
-        }
-    }
-}
 
 @Composable
 private fun SectionHeader(
@@ -875,45 +651,6 @@ private fun EmptyWatchlistState(
             ) {
                 Text(
                     text = actionLabel,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun FilteredEmptyState(
-    onClearFilter: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(32.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text(
-                text = "No titles match your filters",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = onClearFilter,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = NetflixRed,
-                    contentColor = PureBlack,
-                ),
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                Text(
-                    text = "Clear Filters",
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onPrimary,
                 )

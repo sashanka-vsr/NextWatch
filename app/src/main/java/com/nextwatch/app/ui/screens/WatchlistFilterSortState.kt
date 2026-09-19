@@ -2,53 +2,49 @@ package com.nextwatch.app.ui.screens
 
 import com.nextwatch.app.data.MediaItem
 
-/**
- * All available sort orders for the Watchlist.
- * [defaultForSeries] = true means this sort naturally respects the Currently Watching pinning
- * behaviour when [WatchlistFilterState.preserveWatchingSection] is true.
- */
-enum class WatchlistSortOrder(val label: String) : java.io.Serializable {
-    RecentlyAdded("Recently added"),
-    TitleAZ("Title: A → Z"),
-    TitleZA("Title: Z → A"),
-    YearNewest("Release year: newest first"),
-    YearOldest("Release year: oldest first"),
-    RatingHighest("IMDb rating: highest first"),
-    RatingLowest("IMDb rating: lowest first"),
-    RuntimeShortest("Runtime: shortest first"),
-    RuntimeLongest("Runtime: longest first"),
-    SeasonsMore("Seasons: most first"),
-    SeasonsLess("Seasons: fewest first"),
-    EpisodesMore("Episodes: most first"),
-    EpisodesLess("Episodes: fewest first"),
+enum class SortDirection {
+    Ascending,
+    Descending,
 }
 
-/** Movie-only sort orders. */
-val MovieSortOrders = listOf(
-    WatchlistSortOrder.RecentlyAdded,
-    WatchlistSortOrder.TitleAZ,
-    WatchlistSortOrder.TitleZA,
-    WatchlistSortOrder.YearNewest,
-    WatchlistSortOrder.YearOldest,
-    WatchlistSortOrder.RatingHighest,
-    WatchlistSortOrder.RatingLowest,
-    WatchlistSortOrder.RuntimeShortest,
-    WatchlistSortOrder.RuntimeLongest,
+/**
+ * All available sort criteria for the Watchlist.
+ */
+enum class WatchlistSortCriterion(val label: String) : java.io.Serializable {
+    Added("Added"),
+    Title("Title"),
+    Year("Release year"),
+    Rating("IMDb rating"),
+    Runtime("Runtime"),
+    Seasons("Seasons"),
+    Episodes("Episodes"),
+}
+
+/**
+ * Encapsulates the active sort criterion and direction.
+ */
+data class WatchlistSort(
+    val criterion: WatchlistSortCriterion = WatchlistSortCriterion.Added,
+    val direction: SortDirection = SortDirection.Descending,
+) : java.io.Serializable
+
+/** Movie-only sort criteria. */
+val MovieSortCriteria = listOf(
+    WatchlistSortCriterion.Added,
+    WatchlistSortCriterion.Title,
+    WatchlistSortCriterion.Year,
+    WatchlistSortCriterion.Rating,
+    WatchlistSortCriterion.Runtime,
 )
 
-/** Series sort orders — includes season/episode options. */
-val SeriesSortOrders = listOf(
-    WatchlistSortOrder.RecentlyAdded,
-    WatchlistSortOrder.TitleAZ,
-    WatchlistSortOrder.TitleZA,
-    WatchlistSortOrder.YearNewest,
-    WatchlistSortOrder.YearOldest,
-    WatchlistSortOrder.RatingHighest,
-    WatchlistSortOrder.RatingLowest,
-    WatchlistSortOrder.SeasonsMore,
-    WatchlistSortOrder.SeasonsLess,
-    WatchlistSortOrder.EpisodesMore,
-    WatchlistSortOrder.EpisodesLess,
+/** Series sort criteria — includes season/episode options. */
+val SeriesSortCriteria = listOf(
+    WatchlistSortCriterion.Added,
+    WatchlistSortCriterion.Title,
+    WatchlistSortCriterion.Year,
+    WatchlistSortCriterion.Rating,
+    WatchlistSortCriterion.Seasons,
+    WatchlistSortCriterion.Episodes,
 )
 
 /**
@@ -122,42 +118,57 @@ fun List<MediaItem>.applyFilter(
     }
 }
 
-/** Apply [WatchlistSortOrder] to a list. Nulls sort last. */
-fun List<MediaItem>.applySort(order: WatchlistSortOrder): List<MediaItem> {
-    return when (order) {
-        WatchlistSortOrder.RecentlyAdded -> sortedByDescending { it.dateAdded }
-        WatchlistSortOrder.TitleAZ -> sortedBy { it.title.lowercase() }
-        WatchlistSortOrder.TitleZA -> sortedByDescending { it.title.lowercase() }
-        WatchlistSortOrder.YearNewest -> sortedWith(
-            compareByDescending { it.releaseDate?.takeIf { d -> d.length >= 4 }?.take(4)?.toIntOrNull() }
-        )
-        WatchlistSortOrder.YearOldest -> sortedWith(
-            compareBy(nullsLast()) { it.releaseDate?.takeIf { d -> d.length >= 4 }?.take(4)?.toIntOrNull() }
-        )
-        WatchlistSortOrder.RatingHighest -> sortedWith(
-            compareByDescending { it.imdbRating }
-        )
-        WatchlistSortOrder.RatingLowest -> sortedWith(
-            compareBy(nullsLast()) { it.imdbRating }
-        )
-        WatchlistSortOrder.RuntimeShortest -> sortedWith(
-            compareBy(nullsLast()) { it.runtimeMinutes }
-        )
-        WatchlistSortOrder.RuntimeLongest -> sortedWith(
-            compareByDescending { it.runtimeMinutes }
-        )
-        WatchlistSortOrder.SeasonsMore -> sortedWith(
-            compareByDescending { it.seasonCount }
-        )
-        WatchlistSortOrder.SeasonsLess -> sortedWith(
-            compareBy(nullsLast()) { it.seasonCount }
-        )
-        WatchlistSortOrder.EpisodesMore -> sortedWith(
-            compareByDescending { it.episodeCount }
-        )
-        WatchlistSortOrder.EpisodesLess -> sortedWith(
-            compareBy(nullsLast()) { it.episodeCount }
-        )
+/** Apply [WatchlistSort] to a list. Nulls sort last. */
+fun List<MediaItem>.applySort(sort: WatchlistSort): List<MediaItem> {
+    return when (sort.criterion) {
+        WatchlistSortCriterion.Added -> when (sort.direction) {
+            SortDirection.Descending -> sortedByDescending { it.dateAdded }
+            SortDirection.Ascending -> sortedBy { it.dateAdded }
+        }
+        WatchlistSortCriterion.Title -> when (sort.direction) {
+            SortDirection.Ascending -> sortedBy { it.title.lowercase() }
+            SortDirection.Descending -> sortedByDescending { it.title.lowercase() }
+        }
+        WatchlistSortCriterion.Year -> when (sort.direction) {
+            SortDirection.Descending -> sortedWith(
+                compareByDescending { it.releaseDate?.takeIf { d -> d.length >= 4 }?.take(4)?.toIntOrNull() }
+            )
+            SortDirection.Ascending -> sortedWith(
+                compareBy(nullsLast()) { it.releaseDate?.takeIf { d -> d.length >= 4 }?.take(4)?.toIntOrNull() }
+            )
+        }
+        WatchlistSortCriterion.Rating -> when (sort.direction) {
+            SortDirection.Descending -> sortedWith(
+                compareByDescending { it.imdbRating }
+            )
+            SortDirection.Ascending -> sortedWith(
+                compareBy(nullsLast()) { it.imdbRating }
+            )
+        }
+        WatchlistSortCriterion.Runtime -> when (sort.direction) {
+            SortDirection.Descending -> sortedWith(
+                compareByDescending { it.runtimeMinutes }
+            )
+            SortDirection.Ascending -> sortedWith(
+                compareBy(nullsLast()) { it.runtimeMinutes }
+            )
+        }
+        WatchlistSortCriterion.Seasons -> when (sort.direction) {
+            SortDirection.Descending -> sortedWith(
+                compareByDescending { it.seasonCount }
+            )
+            SortDirection.Ascending -> sortedWith(
+                compareBy(nullsLast()) { it.seasonCount }
+            )
+        }
+        WatchlistSortCriterion.Episodes -> when (sort.direction) {
+            SortDirection.Descending -> sortedWith(
+                compareByDescending { it.episodeCount }
+            )
+            SortDirection.Ascending -> sortedWith(
+                compareBy(nullsLast()) { it.episodeCount }
+            )
+        }
     }
 }
 

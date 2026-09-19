@@ -20,8 +20,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Sort
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -51,11 +53,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.nextwatch.app.data.AppPreferences
 import com.nextwatch.app.data.MediaItem
+import com.nextwatch.app.ui.components.FilteredEmptyState
+import com.nextwatch.app.ui.components.MediaFilterBottomSheet
+import com.nextwatch.app.ui.components.MediaSortBottomSheet
 import com.nextwatch.app.ui.components.SavedMediaCard
 import com.nextwatch.app.ui.theme.DarkBorder
 import com.nextwatch.app.ui.theme.DarkSurfaceVariant
@@ -90,6 +97,39 @@ fun WatchHistoryScreen(
     var activeActionItem by remember { mutableStateOf<MediaItem?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
+    val context = LocalContext.current
+    val preferences = remember { AppPreferences(context) }
+
+    // ── filter / sort sheet state ─────────────────────────────────────────────
+    var showFilterSheet by rememberSaveable { mutableStateOf(false) }
+    var showSortSheet by rememberSaveable { mutableStateOf(false) }
+
+    var movieFilter by rememberSaveable { mutableStateOf(WatchlistFilterState.Empty) }
+    var seriesFilter by rememberSaveable { mutableStateOf(WatchlistFilterState.Empty) }
+    var movieSort by rememberSaveable { mutableStateOf(preferences.getHistoryMovieSort()) }
+    var seriesSort by rememberSaveable { mutableStateOf(preferences.getHistorySeriesSort()) }
+
+    val isMoviesTab = pagerState.currentPage == HistoryTab.Movies.ordinal
+
+    // Current tab's filter and sort
+    val currentFilter = if (isMoviesTab) movieFilter else seriesFilter
+    val isFilterActive = currentFilter.isActive
+
+    // ── derived, filtered + sorted lists ──────────────────────────────────────
+    val allMovieGenres = remember(movieGenres) {
+        movieGenres.values.flatten().distinct().sorted()
+    }
+    val allSeriesGenres = remember(seriesGenres) {
+        seriesGenres.values.flatten().distinct().sorted()
+    }
+
+    val displayMovies = remember(movies, movieGenres, movieFilter, movieSort) {
+        movies.applyFilter(movieFilter, movieGenres).applySort(movieSort)
+    }
+    val displaySeries = remember(series, seriesGenres, seriesFilter, seriesSort) {
+        series.applyFilter(seriesFilter, seriesGenres).applySort(seriesSort)
+    }
+
     BackHandler(onBack = onBackClick)
 
     Scaffold(
@@ -109,6 +149,25 @@ fun WatchHistoryScreen(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back",
+                        )
+                    }
+                },
+                actions = {
+                    // Filter button — tinted red when active
+                    IconButton(onClick = { showFilterSheet = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.FilterList,
+                            contentDescription = "Filter",
+                            tint = if (isFilterActive) NetflixRed
+                                   else MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    // Sort button
+                    IconButton(onClick = { showSortSheet = true }) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Sort,
+                            contentDescription = "Sort",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 },
@@ -136,7 +195,7 @@ fun WatchHistoryScreen(
                 },
             ) {
                 HistoryTab.entries.forEach { tab ->
-                    val count = if (tab == HistoryTab.Movies) movies.size else series.size
+                    val count = if (tab == HistoryTab.Movies) displayMovies.size else displaySeries.size
                     Tab(
                         selected = pagerState.currentPage == tab.ordinal,
                         onClick = {
@@ -159,52 +218,104 @@ fun WatchHistoryScreen(
                 modifier = Modifier.fillMaxSize(),
                 beyondViewportPageCount = 1,
             ) { page ->
-                val items = when (HistoryTab.entries[page]) {
-                    HistoryTab.Movies -> movies
-                    HistoryTab.Series -> series
-                }
-
-                if (items.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(32.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(
-                            text = "No watch history yet",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        items(items, key = { it.id }) { item ->
-                            SavedMediaCard(
-                                item = item,
-                                genres = if (HistoryTab.entries[page] == HistoryTab.Movies)
-                                    movieGenres[item.id].orEmpty()
-                                else
-                                    seriesGenres[item.id].orEmpty(),
-                                onClick = { onItemClick(item) },
-                                trailingContent = {
-                                    IconButton(
-                                        onClick = { activeActionItem = item },
-                                        modifier = Modifier.size(36.dp),
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.MoreVert,
-                                            contentDescription = "Options",
-                                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.size(20.dp),
-                                        )
-                                    }
+                when (HistoryTab.entries[page]) {
+                    HistoryTab.Movies -> {
+                        if (movies.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = "No watch history yet",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else if (displayMovies.isEmpty()) {
+                            FilteredEmptyState(
+                                onClearFilter = {
+                                    movieFilter = WatchlistFilterState.Empty
                                 },
                             )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                items(displayMovies, key = { it.id }) { item ->
+                                    SavedMediaCard(
+                                        item = item,
+                                        genres = movieGenres[item.id].orEmpty(),
+                                        onClick = { onItemClick(item) },
+                                        trailingContent = {
+                                            IconButton(
+                                                onClick = { activeActionItem = item },
+                                                modifier = Modifier.size(36.dp),
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.MoreVert,
+                                                    contentDescription = "Options",
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(20.dp),
+                                                )
+                                            }
+                                        },
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    HistoryTab.Series -> {
+                        if (series.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = "No watch history yet",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        } else if (displaySeries.isEmpty()) {
+                            FilteredEmptyState(
+                                onClearFilter = {
+                                    seriesFilter = WatchlistFilterState.Empty
+                                },
+                            )
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                items(displaySeries, key = { it.id }) { item ->
+                                    SavedMediaCard(
+                                        item = item,
+                                        genres = seriesGenres[item.id].orEmpty(),
+                                        onClick = { onItemClick(item) },
+                                        trailingContent = {
+                                            IconButton(
+                                                onClick = { activeActionItem = item },
+                                                modifier = Modifier.size(36.dp),
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Default.MoreVert,
+                                                    contentDescription = "Options",
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    modifier = Modifier.size(20.dp),
+                                                )
+                                            }
+                                        },
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -332,5 +443,48 @@ fun WatchHistoryScreen(
                 }
             }
         }
+    }
+
+    // ── Sort Bottom Sheet ─────────────────────────────────────────────────────
+    if (showSortSheet) {
+        val availableCriteria = if (isMoviesTab) MovieSortCriteria else SeriesSortCriteria
+        val currentSort = if (isMoviesTab) movieSort else seriesSort
+
+        MediaSortBottomSheet(
+            onDismissRequest = { showSortSheet = false },
+            currentSort = currentSort,
+            availableCriteria = availableCriteria,
+            onSortChange = { newSort ->
+                if (isMoviesTab) {
+                    movieSort = newSort
+                    preferences.setHistoryMovieSort(newSort)
+                } else {
+                    seriesSort = newSort
+                    preferences.setHistorySeriesSort(newSort)
+                }
+            },
+        )
+    }
+
+    // ── Filter Bottom Sheet ───────────────────────────────────────────────────
+    if (showFilterSheet) {
+        val isMovies = isMoviesTab
+        val currentGenrePool = if (isMovies) allMovieGenres else allSeriesGenres
+        val langPool = if (isMovies) movies.distinctLanguages() else series.distinctLanguages()
+        val directorPool = if (isMovies) movies.distinctDirectors() else series.distinctCreators()
+        val currentFilterState = if (isMovies) movieFilter else seriesFilter
+
+        MediaFilterBottomSheet(
+            onDismissRequest = { showFilterSheet = false },
+            isMovies = isMovies,
+            currentFilter = currentFilterState,
+            genrePool = currentGenrePool,
+            languagePool = langPool,
+            creatorPool = directorPool,
+            onApplyFilter = { appliedFilter ->
+                if (isMovies) movieFilter = appliedFilter else seriesFilter = appliedFilter
+                showFilterSheet = false
+            },
+        )
     }
 }
