@@ -84,6 +84,8 @@ fun WatchHistoryScreen(
     val coroutineScope = rememberCoroutineScope()
     val movies by viewModel.historyMovies.collectAsState()
     val series by viewModel.historySeries.collectAsState()
+    val movieGenres by viewModel.historyMovieGenres.collectAsState()
+    val seriesGenres by viewModel.historySeriesGenres.collectAsState()
 
     var activeActionItem by remember { mutableStateOf<MediaItem?>(null) }
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -155,6 +157,7 @@ fun WatchHistoryScreen(
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
+                beyondViewportPageCount = 1,
             ) { page ->
                 val items = when (HistoryTab.entries[page]) {
                     HistoryTab.Movies -> movies
@@ -183,7 +186,10 @@ fun WatchHistoryScreen(
                         items(items, key = { it.id }) { item ->
                             SavedMediaCard(
                                 item = item,
-                                viewModel = viewModel,
+                                genres = if (HistoryTab.entries[page] == HistoryTab.Movies)
+                                    movieGenres[item.id].orEmpty()
+                                else
+                                    seriesGenres[item.id].orEmpty(),
                                 onClick = { onItemClick(item) },
                                 trailingContent = {
                                     IconButton(

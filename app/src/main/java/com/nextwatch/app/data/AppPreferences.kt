@@ -37,6 +37,16 @@ class AppPreferences(
         return if (customKey.isNotEmpty()) customKey else ApiKeys.OMDB
     }
 
+    fun getWatchRegion(): String {
+        val stored = prefs.getString(KEY_WATCH_REGION, null)
+        if (!stored.isNullOrBlank()) return stored
+        return java.util.Locale.getDefault().country.ifBlank { "US" }
+    }
+
+    fun setWatchRegion(region: String) {
+        prefs.edit().putString(KEY_WATCH_REGION, region).apply()
+    }
+
     companion object {
         const val ROUTE_HOME = "hub"
         const val ROUTE_WATCHLIST = "watchlist"
@@ -45,5 +55,6 @@ class AppPreferences(
         private const val PREFS_NAME = "nextwatch_prefs"
         private const val KEY_LANDING = "landing_page"
         private const val KEY_OMDB_API_KEY = "omdb_api_key"
+        private const val KEY_WATCH_REGION = "watch_region"
     }
 }

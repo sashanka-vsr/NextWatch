@@ -74,6 +74,64 @@ class NextWatchApiClient(
             parseTmdbDetails(body, mediaType)
     }
 
+    suspend fun fetchWatchProvidersRaw(
+        tmdbId: Int,
+        mediaType: String,
+    ): String? = withContext(Dispatchers.IO) {
+        val url = when (mediaType) {
+            MediaItem.TYPE_MOVIE -> "$TMDB_BASE_URL/movie/$tmdbId/watch/providers"
+            MediaItem.TYPE_SERIES -> "$TMDB_BASE_URL/tv/$tmdbId/watch/providers"
+            else -> return@withContext null
+        }
+
+        runCatching {
+            val body = httpClient.get(url) {
+                parameter("api_key", tmdbApiKey)
+            }.bodyAsText()
+            JSONObject(body).optJSONObject("results")?.toString()
+        }.getOrNull()
+    }
+
+    fun parseRegionAvailability(
+        resultsJson: String,
+        regionCode: String,
+    ): RegionAvailability? {
+        return runCatching {
+            val results = JSONObject(resultsJson)
+            val region = results.optJSONObject(regionCode) ?: return@runCatching null
+
+            val link = region.optString("link")
+                .takeIf { it.isNotBlank() && it != "null" }
+
+            fun parseProviders(key: String): List<StreamingProvider> {
+                val arr = region.optJSONArray(key) ?: return emptyList()
+                return buildList {
+                    for (i in 0 until arr.length()) {
+                        val obj = arr.optJSONObject(i) ?: continue
+                        val name = obj.optString("provider_name")
+                            .takeIf { it.isNotBlank() && it != "null" } ?: continue
+                        val logoPath = obj.optString("logo_path")
+                            .takeIf { it.isNotBlank() && it != "null" }
+                        add(
+                            StreamingProvider(
+                                providerId = obj.optInt("provider_id"),
+                                providerName = name,
+                                logoPath = logoPath,
+                            )
+                        )
+                    }
+                }
+            }
+
+            RegionAvailability(
+                link = link,
+                flatrate = parseProviders("flatrate"),
+                rent = parseProviders("rent"),
+                buy = parseProviders("buy"),
+            )
+        }.getOrNull()
+    }
+
     private fun parseTmdbDetails(
             body: String,
             mediaType: String,

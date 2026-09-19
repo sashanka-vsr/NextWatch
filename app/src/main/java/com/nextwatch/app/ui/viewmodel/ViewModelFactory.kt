@@ -15,6 +15,7 @@ class ViewModelFactory(
     private val appContext = context.applicationContext
     private val mediaDao = DatabaseProvider.mediaDao(appContext)
     private val mediaGenreDao = DatabaseProvider.mediaGenreDao(appContext)
+    private val watchProviderDao = DatabaseProvider.watchProviderDao(appContext)
     private val posterCache = PosterCache(appContext)
     private val preferences = AppPreferences(appContext)
 
@@ -24,6 +25,7 @@ class ViewModelFactory(
             return NextWatchViewModel(
                 mediaDao = mediaDao,
                 mediaGenreDao = mediaGenreDao,
+                watchProviderDao = watchProviderDao,
                 posterCache = posterCache,
                 apiClient = NextWatchApiClient(
                     omdbApiKeyProvider = { preferences.getEffectiveOmdbApiKey() },

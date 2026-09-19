@@ -6,7 +6,10 @@ import com.nextwatch.app.data.MediaDao
 import com.nextwatch.app.data.MediaGenre
 import com.nextwatch.app.data.MediaGenreDao
 import com.nextwatch.app.data.MediaItem
+import com.nextwatch.app.data.WatchProviderCache
+import com.nextwatch.app.data.WatchProviderDao
 import com.nextwatch.app.network.NextWatchApiClient
+import com.nextwatch.app.network.RegionAvailability
 import com.nextwatch.app.network.TmdbMovie
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
@@ -22,6 +25,7 @@ import kotlinx.coroutines.flow.Flow
 class NextWatchViewModel(
     private val mediaDao: MediaDao,
     private val mediaGenreDao: MediaGenreDao,
+    private val watchProviderDao: WatchProviderDao,
     private val posterCache: PosterCache,
     private val apiClient: NextWatchApiClient = NextWatchApiClient(),
 ) : ViewModel() {
@@ -61,6 +65,32 @@ class NextWatchViewModel(
      */
     @OptIn(ExperimentalCoroutinesApi::class)
     val watchlistSeriesGenres: StateFlow<Map<Long, List<String>>> = watchlistSeries
+        .flatMapLatest { items ->
+            val ids = items.map { it.id }
+            if (ids.isEmpty()) flowOf(emptyList<MediaGenre>())
+            else mediaGenreDao.observeGenresForMediaIds(ids)
+        }
+        .map { rows -> rows.groupBy({ it.mediaId }, { it.genre }) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /**
+     * Genre map for the watch-history movies: mediaId -> list of genre strings.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val historyMovieGenres: StateFlow<Map<Long, List<String>>> = historyMovies
+        .flatMapLatest { items ->
+            val ids = items.map { it.id }
+            if (ids.isEmpty()) flowOf(emptyList<MediaGenre>())
+            else mediaGenreDao.observeGenresForMediaIds(ids)
+        }
+        .map { rows -> rows.groupBy({ it.mediaId }, { it.genre }) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyMap())
+
+    /**
+     * Genre map for the watch-history series: mediaId -> list of genre strings.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val historySeriesGenres: StateFlow<Map<Long, List<String>>> = historySeries
         .flatMapLatest { items ->
             val ids = items.map { it.id }
             if (ids.isEmpty()) flowOf(emptyList<MediaGenre>())
@@ -180,6 +210,40 @@ class NextWatchViewModel(
         }
     }
 
+    suspend fun getWatchProviders(
+        tmdbId: Int,
+        mediaType: String,
+        region: String,
+    ): RegionAvailability? {
+        val cached = watchProviderDao.get(tmdbId, mediaType)
+        val isFresh = cached != null &&
+            (System.currentTimeMillis() - cached.fetchedAt) < PROVIDER_CACHE_TTL_MS
+
+        val json = if (isFresh) {
+            cached?.regionsJson
+        } else {
+            val fetched = runCatching {
+                apiClient.fetchWatchProvidersRaw(tmdbId, mediaType)
+            }.getOrNull()
+
+            if (fetched != null) {
+                watchProviderDao.upsert(
+                    WatchProviderCache(
+                        tmdbId = tmdbId,
+                        type = mediaType,
+                        regionsJson = fetched,
+                        fetchedAt = System.currentTimeMillis(),
+                    ),
+                )
+                fetched
+            } else {
+                cached?.regionsJson // network failed — fall back to stale cache rather than nothing
+            }
+        }
+
+        return json?.let { apiClient.parseRegionAvailability(it, region) }
+    }
+
     private companion object {
         val WATCHLIST_STATUSES = listOf(
             MediaItem.STATUS_WATCHLIST,
@@ -187,5 +251,6 @@ class NextWatchViewModel(
             MediaItem.STATUS_REWATCH,
         )
         val HISTORY_STATUSES = listOf(MediaItem.STATUS_WATCHED)
+        const val PROVIDER_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000L
     }
 }

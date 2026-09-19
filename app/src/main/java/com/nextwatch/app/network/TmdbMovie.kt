@@ -26,3 +26,16 @@ data class TmdbDetails(
     val posterUrl: String?,
     val imdbId: String?,
 )
+
+data class StreamingProvider(
+    val providerId: Int,
+    val providerName: String,
+    val logoPath: String?,
+)
+
+data class RegionAvailability(
+    val link: String?,
+    val flatrate: List<StreamingProvider>,
+    val rent: List<StreamingProvider>,
+    val buy: List<StreamingProvider>,
+)

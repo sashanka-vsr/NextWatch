@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -48,6 +49,7 @@ import com.nextwatch.app.data.AppPreferences
 import com.nextwatch.app.data.MediaItem
 import com.nextwatch.app.network.NextWatchApiClient
 import com.nextwatch.app.network.OmdbDetails
+import com.nextwatch.app.network.RegionAvailability
 import com.nextwatch.app.network.TmdbDetails
 import com.nextwatch.app.network.TmdbMovie
 import com.nextwatch.app.ui.theme.DarkSurface
@@ -77,6 +79,7 @@ fun MediaDetailScreen(
     var omdbDetails by remember { mutableStateOf<OmdbDetails?>(null) }
     var loadingDetails by remember { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
+    var watchProviders by remember { mutableStateOf<RegionAvailability?>(null) }
 
     LaunchedEffect(media.tmdbId, media.mediaType) {
         loadingDetails = true
@@ -95,6 +98,14 @@ fun MediaDetailScreen(
         }
 
         loadingDetails = false
+    }
+
+    LaunchedEffect(media.tmdbId, media.mediaType, preferences.getWatchRegion()) {
+        watchProviders = viewModel.getWatchProviders(
+            tmdbId = media.tmdbId,
+            mediaType = media.mediaType,
+            region = preferences.getWatchRegion(),
+        )
     }
 
     Scaffold(
@@ -233,6 +244,8 @@ fun MediaDetailScreen(
                         omdbDetails = omdbDetails,
                         mediaType = media.mediaType,
                     )
+
+                    WhereToWatchSection(providers = watchProviders)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -444,5 +457,90 @@ private fun formatSearchReleaseDate(rawDate: String): String {
         if (date != null) formatter.format(date) else rawDate
     } catch (_: Exception) {
         rawDate
+    }
+}
+
+@Composable
+private fun WhereToWatchSection(
+    providers: RegionAvailability?,
+) {
+    if (providers == null) return
+    val flatrate = providers.flatrate
+    val rentBuy = (providers.rent + providers.buy).distinctBy { it.providerId }
+
+    if (flatrate.isEmpty() && rentBuy.isEmpty()) return
+
+    Spacer(modifier = Modifier.height(20.dp))
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (flatrate.isNotEmpty()) {
+            Text(
+                text = "Where to Watch",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(flatrate.size) { index ->
+                    val provider = flatrate[index]
+                    if (provider.logoPath != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = DarkSurface,
+                        ) {
+                            AsyncImage(
+                                model = "https://image.tmdb.org/t/p/w92${provider.logoPath}",
+                                contentDescription = provider.providerName,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                            )
+                        }
+                    }
+                }
+            }
+        } else {
+            Text(
+                text = "Where to Watch",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onBackground,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Available to rent or buy",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(rentBuy.size) { index ->
+                    val provider = rentBuy[index]
+                    if (provider.logoPath != null) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = DarkSurface,
+                        ) {
+                            AsyncImage(
+                                model = "https://image.tmdb.org/t/p/w92${provider.logoPath}",
+                                contentDescription = provider.providerName,
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .size(44.dp)
+                                    .clip(RoundedCornerShape(8.dp)),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            text = "Streaming data by JustWatch",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

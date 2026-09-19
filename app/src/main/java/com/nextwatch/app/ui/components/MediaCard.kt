@@ -17,8 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,7 +33,6 @@ import com.nextwatch.app.ui.theme.DarkSurfaceVariant
 import com.nextwatch.app.ui.theme.NetflixRed
 import com.nextwatch.app.ui.theme.StarGold
 import com.nextwatch.app.ui.theme.WatchingGreen
-import com.nextwatch.app.ui.viewmodel.NextWatchViewModel
 import java.io.File
 import java.util.Locale
 
@@ -54,12 +52,11 @@ fun savedPosterModel(item: MediaItem): Any? {
 @Composable
 fun SavedMediaCard(
     item: MediaItem,
-    viewModel: NextWatchViewModel,
+    genres: List<String>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     trailingContent: @Composable (() -> Unit)? = null,
 ) {
-    val genres by viewModel.observeGenres(item.id).collectAsState(initial = emptyList())
     val isWatching = item.status == MediaItem.STATUS_WATCHING
     val isCurrentlyWatchingSeries =
         isWatching && item.type == MediaItem.TYPE_SERIES
@@ -98,7 +95,9 @@ fun SavedMediaCard(
             }
 
             // Compact Poster
-            val posterModel = savedPosterModel(item)
+            val posterModel = remember(item.posterLocalPath, item.posterUrl) {
+                savedPosterModel(item)
+            }
             if (posterModel != null) {
                 AsyncImage(
                     model = posterModel,

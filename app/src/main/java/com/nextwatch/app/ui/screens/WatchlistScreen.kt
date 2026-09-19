@@ -254,6 +254,7 @@ fun WatchlistScreen(
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier.fillMaxSize(),
+                beyondViewportPageCount = 1,
             ) { page ->
                 when (WatchlistTab.entries[page]) {
                 WatchlistTab.Movies -> {
@@ -278,7 +279,7 @@ fun WatchlistScreen(
                             items(displayMovies, key = { it.id }) { item ->
                                 SavedMediaCard(
                                     item = item,
-                                    viewModel = viewModel,
+                                    genres = movieGenres[item.id].orEmpty(),
                                     onClick = { onItemClick(item) },
                                     trailingContent = {
                                         IconButton(
@@ -328,7 +329,7 @@ fun WatchlistScreen(
                                 items(watchingSeries, key = { "watching_${it.id}" }) { item ->
                                     SavedMediaCard(
                                         item = item,
-                                        viewModel = viewModel,
+                                        genres = seriesGenres[item.id].orEmpty(),
                                         onClick = { onItemClick(item) },
                                         trailingContent = {
                                             IconButton(
@@ -359,7 +360,7 @@ fun WatchlistScreen(
                                 items(queuedSeries, key = { "queued_${it.id}" }) { item ->
                                     SavedMediaCard(
                                         item = item,
-                                        viewModel = viewModel,
+                                        genres = seriesGenres[item.id].orEmpty(),
                                         onClick = { onItemClick(item) },
                                         trailingContent = {
                                             IconButton(

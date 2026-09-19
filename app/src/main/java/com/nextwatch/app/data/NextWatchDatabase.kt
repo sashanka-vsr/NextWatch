@@ -7,8 +7,9 @@ import androidx.room.RoomDatabase
     entities = [
         MediaItem::class,
         MediaGenre::class,
+        WatchProviderCache::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = false,
 )
 abstract class NextWatchDatabase : RoomDatabase() {
@@ -16,4 +17,6 @@ abstract class NextWatchDatabase : RoomDatabase() {
     abstract fun mediaDao(): MediaDao
 
     abstract fun mediaGenreDao(): MediaGenreDao
+
+    abstract fun watchProviderDao(): WatchProviderDao
 }
