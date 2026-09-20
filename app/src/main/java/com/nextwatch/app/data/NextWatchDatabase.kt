@@ -9,7 +9,7 @@ import androidx.room.RoomDatabase
         MediaGenre::class,
         WatchProviderCache::class,
     ],
-    version = 2,
+    version = 1,
     exportSchema = false,
 )
 abstract class NextWatchDatabase : RoomDatabase() {
