@@ -419,7 +419,7 @@ private fun AdditionalInfoSection(
     }
 }
 
-private fun formatReleaseDate(rawDate: String): String {
+internal fun formatReleaseDate(rawDate: String): String {
     return try {
         val parser = SimpleDateFormat("yyyy-MM-dd", Locale.US)
         val formatter = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())

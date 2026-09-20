@@ -41,7 +41,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.text.SimpleDateFormat
 import java.util.Locale
 import coil.compose.AsyncImage
 import androidx.compose.ui.platform.LocalContext
@@ -386,12 +385,12 @@ private fun SearchAdditionalInfo(
         if (mediaType == MediaItem.TYPE_SERIES) {
             details?.creator?.takeIf { it.isNotBlank() }?.let { add("Creator" to it) }
             details?.releaseDate?.takeIf { it.isNotBlank() }
-                ?.let { add("First Aired" to formatSearchReleaseDate(it)) }
+                ?.let { add("First Aired" to formatReleaseDate(it)) }
         } else {
             val director = details?.director ?: omdbDetails?.director
             director?.takeIf { it.isNotBlank() }?.let { add("Director" to it) }
             details?.releaseDate?.takeIf { it.isNotBlank() }
-                ?.let { add("Release Date" to formatSearchReleaseDate(it)) }
+                ?.let { add("Release Date" to formatReleaseDate(it)) }
         }
 
         details?.originalLanguage?.takeIf { it.isNotBlank() }?.let { add("Language" to it) }
@@ -449,16 +448,7 @@ private fun SearchAdditionalInfo(
     }
 }
 
-private fun formatSearchReleaseDate(rawDate: String): String {
-    return try {
-        val parser = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val formatter = SimpleDateFormat("MMMM d, yyyy", Locale.getDefault())
-        val date = parser.parse(rawDate)
-        if (date != null) formatter.format(date) else rawDate
-    } catch (_: Exception) {
-        rawDate
-    }
-}
+
 
 @Composable
 private fun WhereToWatchSection(

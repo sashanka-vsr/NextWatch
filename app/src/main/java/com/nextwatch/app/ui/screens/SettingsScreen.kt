@@ -1,9 +1,13 @@
 package com.nextwatch.app.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -56,14 +60,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.nextwatch.app.BuildConfig
 import com.nextwatch.app.data.AppPreferences
 import com.nextwatch.app.ui.theme.DarkBorder
 import com.nextwatch.app.ui.theme.DarkSurface
 import com.nextwatch.app.ui.theme.NetflixRed
 import com.nextwatch.app.ui.theme.PureBlack
+import com.nextwatch.app.ui.theme.TextSecondary
+import com.nextwatch.app.ui.theme.TextTertiary
 import com.nextwatch.app.ui.viewmodel.BackupUiState
 import com.nextwatch.app.ui.viewmodel.NextWatchViewModel
 import java.text.SimpleDateFormat
@@ -471,6 +480,121 @@ fun SettingsScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // About Section
+            Text(
+                text = "About",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = NetflixRed,
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                color = DarkSurface,
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    // App branding
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = "NEXTWATCH",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 2.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Box(
+                            modifier = Modifier
+                                .padding(start = 3.dp, bottom = 3.dp)
+                                .size(5.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(NetflixRed),
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "v${BuildConfig.VERSION_NAME}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextTertiary,
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    HorizontalDivider(color = DarkBorder)
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "A minimalistic watchlist app for movies and series.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center,
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Text(
+                        text = "Developed by Sashanka VSR",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Links row
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(24.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        AboutLink(label = "GitHub", url = "https://github.com/sashanka-vsr/NextWatch")
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    HorizontalDivider(color = DarkBorder)
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Attributions
+                    Text(
+                        text = "Powered by",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextTertiary,
+                    )
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Text(
+                        text = "TMDb · OMDb · JustWatch",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Medium,
+                        color = TextSecondary,
+                    )
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Text(
+                        text = "This app is for movie-lovers. Any feedback? Drop them in GitHub discussions",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextTertiary,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 14.sp,
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -670,3 +794,26 @@ fun SettingsScreen(
     }
 }
 
+@Composable
+private fun AboutLink(
+    label: String,
+    url: String,
+) {
+    val context = LocalContext.current
+    Text(
+        text = label,
+        style = MaterialTheme.typography.bodySmall,
+        fontWeight = FontWeight.Medium,
+        color = NetflixRed,
+        modifier = Modifier
+            .clip(RoundedCornerShape(4.dp))
+            .clickable {
+                runCatching {
+                    context.startActivity(
+                        Intent(Intent.ACTION_VIEW, Uri.parse(url)),
+                    )
+                }
+            }
+            .padding(horizontal = 4.dp, vertical = 2.dp),
+    )
+}
