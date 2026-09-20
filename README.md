@@ -1,4 +1,14 @@
-# NEXTWATCH<span style="color:#E50914">.</span>
+# Install
+Click on Releases, and download NextWatch.apk from assets. Install the file from your file manager.
+
+# OMDb API KEY
+If you installed the app, navigate to settings , you will find OMDb API key field. When you can't see IMDb rating anymore, you are required to create an api key from OMDb for personal use , and then activate the key from your mail, copy the key, paste it in this field. Doing so would give you IMDb rating lookups.
+This is because , the default key is only upto 1000req/day.
+Non-commercial use only.
+
+Go here : https://www.omdbapi.com/apikey.aspx
+
+# NEXTWATCH<span style="color:#E50914">
 
 A minimalistic watchlist app for movies and series — built with Jetpack Compose, Room, and a pure AMOLED-black design.
 
