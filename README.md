@@ -93,6 +93,3 @@ com.nextwatch.app
    ```
 3. Build and run with Android Studio
 
-## License
-
-<!-- TODO: Add your license here -->
