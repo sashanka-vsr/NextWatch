@@ -1,12 +1,26 @@
-# Install
-Click on Releases, and download NextWatch.apk from assets. Install the file from your file manager.
+# Installation
 
-# OMDb API KEY
-If you installed the app, navigate to settings , you will find OMDb API key field. When you can't see IMDb rating anymore, you are required to create an api key from OMDb for personal use , and then activate the key from your mail, copy the key, paste it in this field. Doing so would give you IMDb rating lookups.
-This is because , the default key is only upto 1000req/day.
-Non-commercial use only.
+1. Open the [Releases](../../releases) page.
+2. Download `NextWatch.apk` from the release assets.
+3. Open the downloaded APK using your file manager and follow Android's installation instructions.
 
-Go here : https://www.omdbapi.com/apikey.aspx
+# OMDb API Key (IMDb Ratings)
+
+NextWatch uses OMDb to retrieve IMDb ratings.
+
+The default API key has a daily request limit. If IMDb ratings stop appearing because the limit has been reached, you can configure your own free OMDb API key:
+
+1. Visit https://www.omdbapi.com/apikey.aspx.
+2. Select the free account option and register.
+3. Activate your key using the link sent to your email.
+4. Copy the activated API key.
+5. Open NextWatch → **Settings** → **OMDb API Key**, then paste and save your key.
+
+Your personal key will be used for IMDb rating lookups.
+
+OMDb's free API key is limited to 1,000 requests per day. Please check OMDb's current terms and usage limits.
+
+NextWatch is a non-commercial project. OMDb data is subject to OMDb's terms of use.
 
 # NEXTWATCH<span style="color:#E50914">
 
